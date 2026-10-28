@@ -298,14 +298,26 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
               options={SIDE_OPTIONS}
             />
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs font-bold">
             <span
               className={cx(
-                'flex items-center gap-1 rounded px-2 py-1',
-                gps.latitude !== null ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900',
+                'inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-bold transition shadow-2xs',
+                gps.latitude !== null
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                  : 'border-amber-200 bg-amber-50 text-amber-950',
               )}
             >
-              <MapPin className="h-4 w-4" />
+              <span className="relative flex h-2.5 w-2.5">
+                {gps.latitude !== null ? (
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                ) : (
+                  <>
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  </>
+                )}
+              </span>
+              <MapPin className="h-3.5 w-3.5 text-slate-600" />
               {gps.latitude !== null ? gpsText(gps) : gpsErr || 'Mencari sinyal GPS…'}
             </span>
             <Badge tone="slate" wrap>
@@ -314,8 +326,8 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
           </div>
         </Card>
 
-        <div className={cx('overflow-hidden rounded-xl border-2 border-slate-900 bg-black', draft && 'hidden')}>
-          <div className="relative aspect-[4/3] sm:aspect-video w-full">
+        <div className={cx('overflow-hidden rounded-2xl border-2 border-slate-900 bg-slate-950 shadow-xl', draft && 'hidden')}>
+          <div className="relative aspect-[4/3] sm:aspect-video w-full bg-black">
             <video
               ref={videoRef}
               playsInline
@@ -327,68 +339,74 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
             {camOn && level && (
               <div
                 className={cx(
-                  'absolute left-2 top-2 rounded px-2 py-1 text-xs font-black',
-                  level === 'TEGAK' ? 'bg-emerald-600 text-white' : 'bg-amber-400 text-black',
+                  'absolute left-3 top-3 rounded-lg px-2.5 py-1 text-xs font-black shadow-md backdrop-blur-md',
+                  level === 'TEGAK' ? 'bg-emerald-600/90 text-white' : 'bg-amber-400/90 text-slate-950',
                 )}
               >
                 {level}
               </div>
             )}
             {camOn && edge && (
-              <div className="absolute right-2 top-2 rounded bg-red-600 px-2 py-1 text-xs font-black text-white">
+              <div className="absolute right-3 top-3 rounded-lg bg-red-600/90 px-2.5 py-1 text-xs font-black text-white shadow-md backdrop-blur-md">
                 FILTER RETAK & RONGGA
               </div>
             )}
             {!camOn && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-slate-200">
-                <CameraOff className="h-12 w-12" />
-                <p className="text-sm font-semibold">{camErr || 'Kamera belakang belum aktif.'}</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-slate-300">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900/80 border border-slate-800 text-slate-400">
+                  <CameraOff className="h-8 w-8" />
+                </div>
+                <p className="text-sm font-bold text-slate-300 max-w-xs">{camErr || 'Kamera belakang belum aktif. Tekan AKTIFKAN untuk memulai pemotretan.'}</p>
               </div>
             )}
           </div>
-          <div className="grid grid-cols-4 gap-1 bg-[#0f172a] p-2">
+          <div className="grid grid-cols-4 gap-1.5 bg-slate-950/95 border-t border-slate-800 p-2 sm:p-2.5 backdrop-blur">
             <button
               onClick={() => setGrid((g) => !g)}
               className={cx(
-                'flex h-14 flex-col items-center justify-center rounded-lg text-[11px] font-bold',
-                grid ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-300',
+                'flex h-14 flex-col items-center justify-center rounded-xl text-[11px] font-bold transition border active:scale-95',
+                grid
+                  ? 'border-sky-400/50 bg-sky-500/20 text-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
+                  : 'border-slate-800 bg-slate-900/90 text-slate-400 hover:text-slate-200 hover:bg-slate-800',
               )}
             >
-              <Grid3x3 className="h-5 w-5" />
+              <Grid3x3 className="h-5 w-5 mb-0.5" />
               Grid Skala
             </button>
             <button
               onClick={() => setEdge((g) => !g)}
               className={cx(
-                'flex h-14 flex-col items-center justify-center rounded-lg text-[11px] font-bold',
-                edge ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-300',
+                'flex h-14 flex-col items-center justify-center rounded-xl text-[11px] font-bold transition border active:scale-95',
+                edge
+                  ? 'border-red-400/50 bg-red-500/20 text-red-300 shadow-[0_0_12px_rgba(248,113,113,0.2)]'
+                  : 'border-slate-800 bg-slate-900/90 text-slate-400 hover:text-slate-200 hover:bg-slate-800',
               )}
             >
-              <ScanLine className="h-5 w-5" />
+              <ScanLine className="h-5 w-5 mb-0.5" />
               Filter Retak
             </button>
             {camOn ? (
               <button
                 onClick={capture}
-                className="flex h-14 flex-col items-center justify-center rounded-lg bg-amber-400 text-[11px] font-black text-black"
+                className="flex h-14 flex-col items-center justify-center rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-[11px] font-black text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.35)] hover:from-amber-300 hover:to-amber-400 active:scale-95 transition"
               >
-                <Aperture className="h-6 w-6" />
+                <Aperture className="h-6 w-6 mb-0.5 animate-pulse" />
                 AMBIL FOTO
               </button>
             ) : (
               <button
                 onClick={startCam}
-                className="flex h-14 flex-col items-center justify-center rounded-lg bg-emerald-600 text-[11px] font-black text-white"
+                className="flex h-14 flex-col items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 text-[11px] font-black text-white shadow-[0_0_16px_rgba(16,185,129,0.3)] active:scale-95 transition"
               >
-                <Camera className="h-6 w-6" />
+                <Camera className="h-6 w-6 mb-0.5" />
                 AKTIFKAN
               </button>
             )}
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex h-14 flex-col items-center justify-center rounded-lg bg-slate-800 text-[11px] font-bold text-slate-200"
+              className="flex h-14 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-900/90 text-[11px] font-bold text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition"
             >
-              <Upload className="h-5 w-5" />
+              <Upload className="h-5 w-5 mb-0.5" />
               Unggah Foto
             </button>
           </div>

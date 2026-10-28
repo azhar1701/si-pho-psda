@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import type { ConclusionMode, PHOProject } from '../types';
 import type { Updater } from '../App';
-import { Btn, Card, NumField, SelectField, TextField } from './ui';
+import { Btn, Card, NumField, SelectField, TextField, cx } from './ui';
 import { buildMc100Template, importMc100 } from '../lib/csv';
 import { downloadBlob, getStoredApiKey, normalizeProject, safeFileName, setStoredApiKey } from '../lib/storage';
 import { buildDemoProject } from '../lib/demo';
@@ -145,59 +145,27 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      <Card title="Manajemen Data Proyek" icon={<Database className="h-5 w-5" />} className="lg:col-span-2">
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      {/* 1. Cadangan & Pertukaran Data */}
+      <Card title="Cadangan & Pertukaran Data" icon={<Database className="h-5 w-5 text-indigo-600" />}>
+        <p className="text-xs text-slate-500">
+          Ekspor-impor daftar STA, dimensi MC-100, dan berkas cadangan JSON lengkap untuk pengarsipan proyek.
+        </p>
+        <div className="grid gap-2.5 sm:grid-cols-2">
           <Btn onClick={() => downloadBlob(buildMc100Template(), 'Template_MC100_SIPHO_PSDA.csv', 'text/csv;charset=utf-8')}>
-            <Download className="h-5 w-5" />
-            Unduh Template CSV MC-100
+            <Download className="h-4 w-4 text-slate-500" />
+            <span>Unduh Template CSV</span>
           </Btn>
           <Btn variant="primary" onClick={() => csvRef.current?.click()}>
-            <FileSpreadsheet className="h-5 w-5" />
-            Impor CSV MC-100
+            <FileSpreadsheet className="h-4 w-4" />
+            <span>Impor CSV MC-100</span>
           </Btn>
           <Btn onClick={exportJson}>
-            <FileJson className="h-5 w-5" />
-            Simpan Proyek (.JSON)
+            <FileJson className="h-4 w-4 text-emerald-600" />
+            <span>Simpan Cadangan (.JSON)</span>
           </Btn>
           <Btn onClick={() => jsonRef.current?.click()}>
-            <Upload className="h-5 w-5" />
-            Muat Proyek (.JSON)
-          </Btn>
-          <Btn
-            variant="ghost"
-            className="border-2 border-dashed border-slate-300"
-            onClick={() => {
-              askConfirm({
-                title: 'Muat Proyek Contoh',
-                message: 'Muat ulang Proyek Contoh D.I. Lakbok Utara? Data proyek aktif pada perangkat akan diganti.',
-                isDestructive: true,
-                onConfirm: async () => {
-                  replaceProject(await buildDemoProject());
-                  notify('Proyek contoh dimuat.');
-                },
-              });
-            }}
-          >
-            <RotateCcw className="h-5 w-5" />
-            Muat Proyek Contoh
-          </Btn>
-          <Btn
-            variant="ghost"
-            className="border-2 border-dashed border-slate-300"
-            onClick={() => {
-              askConfirm({
-                title: 'Buat Proyek Baru Kosong',
-                message: 'Buat proyek baru yang kosong? Pastikan Anda telah menyimpan cadangan JSON bila data aktif masih diperlukan.',
-                isDestructive: true,
-                onConfirm: () => {
-                  replaceProject(blankProject());
-                  notify('Proyek baru dibuat.');
-                },
-              });
-            }}
-          >
-            <FilePlus2 className="h-5 w-5" />
-            Proyek Baru (Kosong)
+            <Upload className="h-4 w-4 text-indigo-600" />
+            <span>Buka Cadangan (.JSON)</span>
           </Btn>
         </div>
         <input
@@ -222,12 +190,11 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
             e.target.value = '';
           }}
         />
-        <p className="mt-3 text-xs font-medium text-slate-600">
-          Impor MC-100 bersifat gabung: STA dengan kode & sub-tipe sama diperbarui dimensi rencananya tanpa menghapus hasil ukur lapangan; STA baru
-          ditambahkan. Format template: pemisah titik koma (;), desimal koma.
-        </p>
+        <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
+          <strong className="font-semibold text-slate-800">Catatan Sinkronisasi:</strong> Impor MC-100 menggabungkan STA secara cerdas tanpa menghapus hasil ukur lapangan yang telah direkam.
+        </div>
         {importLog.length > 0 && (
-          <ul className="mt-2 space-y-1 rounded-lg border border-slate-300 bg-slate-50 p-3 text-xs font-semibold text-slate-800">
+          <ul className="space-y-1 rounded-xl border border-slate-300 bg-slate-50 p-3 text-xs font-semibold text-slate-800">
             {importLog.map((l, i) => (
               <li key={i}>• {l}</li>
             ))}
@@ -235,7 +202,64 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
         )}
       </Card>
 
-      <Card title="Kop Surat Instansi" icon={<Building2 className="h-5 w-5" />}>
+      {/* 2. Inisialisasi & Template Proyek */}
+      <Card title="Inisialisasi & Template Proyek" icon={<FilePlus2 className="h-5 w-5 text-amber-600" />}>
+        <p className="text-xs text-slate-500">
+          Muat proyek percontohan untuk pelatihan inspeksi atau reset data ke proyek baru yang bersih.
+        </p>
+        <div className="grid gap-2.5">
+          <div className="flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-900">Proyek Contoh D.I. Lakbok Utara</div>
+              <div className="text-[11px] text-slate-500">Dataset lengkap (11 segmen, foto drone & DSLR, foto cacat mutu, hasil ukur).</div>
+            </div>
+            <Btn
+              onClick={() => {
+                askConfirm({
+                  title: 'Muat Proyek Contoh',
+                  message: 'Muat ulang Proyek Contoh D.I. Lakbok Utara? Data proyek aktif pada perangkat akan diganti.',
+                  isDestructive: true,
+                  onConfirm: async () => {
+                    replaceProject(await buildDemoProject());
+                    notify('Proyek contoh dimuat.');
+                  },
+                });
+              }}
+              className="shrink-0"
+            >
+              <RotateCcw className="h-4 w-4 text-amber-600" />
+              <span>Muat Demo</span>
+            </Btn>
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-900">Mulai Proyek Kosong Baru</div>
+              <div className="text-[11px] text-slate-500">Bersihkan semua segmen untuk inspeksi paket pekerjaan baru di lapangan.</div>
+            </div>
+            <Btn
+              onClick={() => {
+                askConfirm({
+                  title: 'Buat Proyek Baru Kosong',
+                  message: 'Buat proyek baru yang kosong? Pastikan Anda telah menyimpan cadangan JSON bila data aktif masih diperlukan.',
+                  isDestructive: true,
+                  onConfirm: () => {
+                    replaceProject(blankProject());
+                    notify('Proyek baru dibuat.');
+                  },
+                });
+              }}
+              className="shrink-0 text-rose-700 hover:bg-rose-50 hover:border-rose-300"
+            >
+              <FilePlus2 className="h-4 w-4 text-rose-600" />
+              <span>Proyek Baru</span>
+            </Btn>
+          </div>
+        </div>
+      </Card>
+
+      {/* 3. Kop Surat Instansi */}
+      <Card title="Kop Surat Instansi" icon={<Building2 className="h-5 w-5 text-sky-600" />}>
         <div className="grid gap-3">
           <TextField
             label="Pemerintah / Kementerian / Balai"
@@ -250,20 +274,41 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
             placeholder="DINAS ... - BIDANG PSDA"
           />
           <TextField label="Alamat Kantor" value={p.agencyHeader.officeAddress} onChange={(v) => setA('officeAddress', v)} />
-          <div className="flex items-center gap-3">
-            {p.agencyHeader.logoDataUrl ? (
-              <img src={p.agencyHeader.logoDataUrl} alt="Logo" className="h-14 w-14 rounded border object-contain" />
-            ) : (
-              <div className="flex h-14 w-14 items-center justify-center rounded border-2 border-dashed text-slate-400">
-                <ImageIcon />
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-3">
+            <div className="mb-2 text-xs font-bold text-slate-700">Logo Kop Surat Resmi</div>
+            <div className="flex items-center gap-3.5">
+              {p.agencyHeader.logoDataUrl ? (
+                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+                  <img src={p.agencyHeader.logoDataUrl} alt="Logo Instansi" className="h-full w-full object-contain" />
+                </div>
+              ) : (
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-slate-300/80 bg-slate-100 text-slate-400">
+                  <ImageIcon className="h-7 w-7 opacity-50" />
+                </div>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Btn onClick={() => logoRef.current?.click()} className="text-xs">
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>{p.agencyHeader.logoDataUrl ? 'Ganti Logo' : 'Unggah Logo'}</span>
+                  </Btn>
+                  {p.agencyHeader.logoDataUrl && (
+                    <Btn
+                      variant="ghost"
+                      onClick={() => setA('logoDataUrl', undefined)}
+                      className="text-xs text-rose-600 hover:bg-rose-50"
+                      title="Hapus Logo"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Hapus</span>
+                    </Btn>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Format PNG/JPG transparan. Tampil otomatis di header aplikasi dan kop surat Berita Acara A4.
+                </div>
               </div>
-            )}
-            <Btn onClick={() => logoRef.current?.click()}>Unggah Logo Kop</Btn>
-            {p.agencyHeader.logoDataUrl && (
-              <Btn variant="ghost" onClick={() => setA('logoDataUrl', undefined)}>
-                <Trash2 className="h-5 w-5" />
-              </Btn>
-            )}
+            </div>
             <input
               ref={logoRef}
               type="file"
@@ -387,7 +432,7 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
         </div>
       </Card>
 
-      <Card title="Kesimpulan BA & Analisis AI" icon={<KeyRound className="h-5 w-5" />}>
+      <Card title="Kesimpulan BA & Analisis AI" icon={<KeyRound className="h-5 w-5 text-purple-600" />}>
         <div className="grid gap-3">
           <SelectField
             label="Pernyataan Kelayakan PHO pada Berita Acara"
@@ -395,44 +440,54 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
             onChange={(v) => metaUp((x) => ({ ...x, conclusionMode: v }))}
             options={sides}
           />
-          <p className="text-xs font-medium text-slate-600">
-            Mode otomatis: terdapat cacat mutu KRITIS atau STA belum diukur → belum dapat diterima; terdapat STA perlu perbaikan / defect list →
-            diterima dengan catatan; selain itu → dapat diterima.
-          </p>
+          <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
+            <strong className="font-semibold text-slate-800">Evaluasi Otomatis:</strong> Cacat mutu KRITIS atau STA belum diukur → Belum Dapat Diterima. Terdapat cacat mutu minor (Defect List) → Diterima dengan Catatan. Selain itu → Dapat Diterima.
+          </div>
           <TextField
-            label="Kunci API Google AI Studio (Gemini) — disimpan hanya di sesi ini"
+            label="Kunci API Google AI Studio (Gemini)"
             type="password"
             value={apiKey}
             onChange={setApiKey}
-            placeholder="AIza…"
+            placeholder="AIzaSy…"
           />
-          <div className="flex flex-wrap gap-2">
-            <Btn
-              variant="primary"
-              onClick={() => {
-                setStoredApiKey(apiKey.trim());
-                notify(apiKey.trim() ? 'Kunci API disimpan di sesi peramban.' : 'Kunci API dihapus.');
-              }}
-            >
-              Simpan Kunci
-            </Btn>
-            <Btn
-              variant="ghost"
-              onClick={() => {
-                setApiKey('');
-                setStoredApiKey('');
-                notify('Kunci API dihapus dari sesi peramban.');
-              }}
-            >
-              Hapus Kunci
-            </Btn>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Btn
+                variant="primary"
+                onClick={() => {
+                  setStoredApiKey(apiKey.trim());
+                  notify(apiKey.trim() ? 'Kunci API disimpan di sesi peramban.' : 'Kunci API dihapus.');
+                }}
+              >
+                Simpan Kunci
+              </Btn>
+              <Btn
+                variant="ghost"
+                onClick={() => {
+                  setApiKey('');
+                  setStoredApiKey('');
+                  notify('Kunci API dihapus dari sesi peramban.');
+                }}
+              >
+                Hapus Kunci
+              </Btn>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={cx(
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-tight',
+                  resolveApiKey()
+                    ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-500/20'
+                    : 'bg-slate-100 text-slate-600 ring-1 ring-slate-300',
+                )}
+              >
+                <span className={cx('h-2 w-2 rounded-full', resolveApiKey() ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400')} />
+                {resolveApiKey() ? 'AI Gemini 2.5 Flash Aktif' : 'Preset Lokal Offline'}
+              </span>
+            </div>
           </div>
-          <p className="text-xs font-medium text-slate-600">
-            Status:{' '}
-            {resolveApiKey()
-              ? 'kunci tersedia — analisis Gemini 2.5 Flash aktif saat daring.'
-              : 'kunci belum tersedia — analisis memakai Pustaka Preset Cacat Mutu PSDA lokal.'}{' '}
-            Kunci tidak ikut tersimpan dalam berkas cadangan JSON.
+          <p className="text-[11px] text-slate-500">
+            Kunci hanya disimpan di sesi peramban lokal Anda dan tidak akan diunggah ke berkas JSON atau dibagikan ke pihak ketiga.
           </p>
         </div>
       </Card>

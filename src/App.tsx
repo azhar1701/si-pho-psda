@@ -114,37 +114,54 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <header className="no-print sticky top-0 z-30 bg-[#0f172a] text-white shadow-lg">
+      <header className="no-print sticky top-0 z-30 border-b border-amber-500/20 bg-[#0f172a] text-white shadow-lg backdrop-blur-md">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-3 py-2.5 lg:px-6">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-950">
-            <ClipboardList className="h-6 w-6" />
-          </div>
+          {project.agencyHeader?.logoDataUrl ? (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 p-1 ring-1 ring-white/20 backdrop-blur">
+              <img
+                src={project.agencyHeader.logoDataUrl}
+                alt="Logo Instansi"
+                className="h-full w-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 shadow-md shadow-amber-500/20">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+          )}
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-extrabold tracking-wide">SI-PHO PSDA</div>
+            <div className="flex items-center gap-2">
+              <span className="text-[15px] font-black tracking-wider text-white">SI-PHO PSDA</span>
+              <span className="hidden sm:inline-flex items-center rounded-md bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-inset ring-amber-400/30">
+                PRO EDITION
+              </span>
+            </div>
             <div className="truncate text-xs font-medium text-slate-300">{project.contractInfo.packageName || 'Paket pekerjaan belum diisi'}</div>
           </div>
           <div className="flex items-center gap-2 text-[11px] font-bold">
-            <span className={cx('flex items-center gap-1 rounded px-2 py-1', online ? 'bg-emerald-700' : 'bg-red-700')}>
+            <span className={cx('flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs shadow-sm', online ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white')}>
               {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">{online ? 'DARING' : 'LURING'}</span>
             </span>
-            <span className="hidden items-center gap-1 rounded bg-slate-700 px-2 py-1 sm:flex" title="Penyimpanan otomatis di perangkat">
-              <HardDrive className="h-3.5 w-3.5" />
+            <span className="hidden items-center gap-1.5 rounded-lg bg-slate-800/90 px-2.5 py-1 text-xs text-slate-300 ring-1 ring-slate-700/60 sm:flex" title="Penyimpanan otomatis di perangkat">
+              <HardDrive className="h-3.5 w-3.5 text-amber-400" />
               {saveState ? `TERSIMPAN ${saveState.at}${saveState.mode === 'indexedDB' ? ' (IDB)' : ''}` : 'MENYIMPAN…'}
             </span>
           </div>
         </div>
-        <nav className="mx-auto hidden max-w-[1600px] gap-1 px-6 pb-2 lg:flex">
+        <nav className="mx-auto hidden max-w-[1600px] gap-1.5 px-6 pb-2.5 lg:flex">
           {NAV.map((n) => (
             <button
               key={n.id}
               onClick={() => go(n.id)}
               className={cx(
-                'flex h-11 items-center gap-2 rounded-lg px-4 text-sm font-bold transition',
-                view === n.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-200 hover:bg-slate-800',
+                'flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition-all duration-150',
+                view === n.id
+                  ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20 ring-1 ring-amber-300'
+                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white',
               )}
             >
-              <n.icon className="h-5 w-5" />
+              <n.icon className="h-4 w-4" />
               {n.label}
             </button>
           ))}
@@ -182,29 +199,34 @@ export default function App() {
         </ErrorBoundary>
       </main>
 
-      <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-800 bg-[#0f172a] lg:hidden">
-        <div className="grid grid-cols-4">
-          {NAV.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => go(n.id)}
-              className={cx(
-                'flex h-16 flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition',
-                view === n.id ? 'bg-white text-slate-900' : 'text-slate-300',
-              )}
-            >
-              <n.icon className="h-6 w-6" />
-              {n.label}
-            </button>
-          ))}
+      <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-lg lg:hidden">
+        <div className="grid grid-cols-4 px-2 py-1.5">
+          {NAV.map((n) => {
+            const active = view === n.id;
+            return (
+              <button
+                key={n.id}
+                onClick={() => go(n.id)}
+                className={cx(
+                  'flex h-14 flex-col items-center justify-center gap-1 rounded-xl transition-all duration-150',
+                  active
+                    ? 'bg-amber-400/15 text-amber-400 ring-1 ring-amber-400/30 font-bold'
+                    : 'text-slate-400 hover:text-slate-200 active:scale-95 font-medium',
+                )}
+              >
+                <n.icon className={cx('h-5 w-5 transition-transform duration-150', active && 'scale-110')} />
+                <span className="text-[10px] tracking-tight">{n.label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
       {toast && (
         <div
           className={cx(
-            'no-print fixed inset-x-3 bottom-20 z-50 mx-auto max-w-lg rounded-xl px-4 py-3 text-sm font-bold text-white shadow-2xl lg:bottom-6 animate-in fade-in duration-200',
-            toast.tone === 'ok' ? 'bg-slate-900 border border-slate-700' : 'bg-red-700 border border-red-500',
+            'no-print fixed inset-x-3 bottom-20 z-50 mx-auto max-w-lg rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-2xl backdrop-blur-md lg:bottom-6 animate-in fade-in duration-200',
+            toast.tone === 'ok' ? 'bg-slate-900/95 border border-slate-700/80' : 'bg-red-900/95 border border-red-700/80',
           )}
         >
           {toast.msg}

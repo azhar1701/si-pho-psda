@@ -1,8 +1,8 @@
-import { Fragment } from 'react';
-import { FileJson, FileSpreadsheet, Printer } from 'lucide-react';
+import { Fragment, useState } from 'react';
+import { FileJson, FileSpreadsheet, Printer, Maximize2, ZoomIn, Eye } from 'lucide-react';
 import type { InspectionSegment, PHOProject, StructureCategory } from '../types';
 import { DIM_KEYS } from '../types';
-import { Btn } from './ui';
+import { Btn, cx } from './ui';
 import { CATEGORIES, CATEGORY_ORDER, POSITION_LABEL, SUBTYPES, SEVERITY_LABEL } from '../lib/templates';
 import { STATUS_SHORT, isDeficit, projectSummary, resolveConclusion, sampleArea } from '../lib/calc';
 import { addDays, fmt, fmtDim, fmtIdr, kalimatTanggal, stempelWaktu, tanggalPanjang, terbilang } from '../lib/format';
@@ -13,20 +13,78 @@ import { PhotoThumbnail } from './PhotoThumbnail';
 
 export default function ReportView({ project: p, notify }: { project: PHOProject; notify: (m: string, t?: 'ok' | 'err') => void }) {
   const base = `${safeFileName(p.contractInfo.packageName)}_${p.inspectionTeam.inspectionDate}`;
+  const [mobileFit, setMobileFit] = useState(false);
+
   return (
-    <div>
-      <div className="no-print mb-3 grid gap-2 rounded-xl border border-slate-300 bg-white p-3 sm:grid-cols-3">
-        <Btn variant="primary" onClick={() => window.print()}><Printer className="h-5 w-5" />Cetak / Simpan PDF (A4)</Btn>
-        <Btn onClick={() => { downloadBlob(buildOpnameCsv(p), `Opname_MC100_vs_Realisasi_${base}.csv`, 'text/csv;charset=utf-8'); notify('Berkas CSV opname diunduh.'); }}>
-          <FileSpreadsheet className="h-5 w-5" />Ekspor Back-Up Data Opname (CSV / Excel)
-        </Btn>
-        <Btn onClick={() => { downloadBlob(JSON.stringify(p, null, 1), `SIPHO_${base}.json`, 'application/json'); notify('Berkas proyek (.json) diunduh.'); }}>
-          <FileJson className="h-5 w-5" />Simpan Proyek (.JSON)
-        </Btn>
-        <p className="text-xs font-medium text-slate-600 sm:col-span-3">Pada dialog cetak pilih ukuran kertas A4, skala 100%, dan aktifkan "Grafik latar belakang". Bagian I dicetak potret; Lampiran I dan II dicetak lanskap.</p>
+    <div className="space-y-4">
+      <div className="no-print rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)] sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <h1 className="text-base font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+              <Eye className="h-5 w-5 text-amber-500" />
+              Pratinjau Dokumen Berita Acara &amp; Lampiran PHO
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Format standar dinas pekerjaan umum (A4 fisik). Bagian I Potret, Lampiran I &amp; II Lanskap.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileFit((v) => !v)}
+              className={cx(
+                'inline-flex lg:hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition shadow-xs',
+                mobileFit
+                  ? 'border-amber-500 bg-amber-50 text-amber-900'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+              )}
+            >
+              {mobileFit ? <ZoomIn className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              {mobileFit ? 'Skala Asli 100%' : 'Pas di Layar Ponsel'}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3.5 grid gap-2.5 sm:grid-cols-3">
+          <Btn variant="primary" onClick={() => window.print()} className="w-full">
+            <Printer className="h-5 w-5 text-amber-400" />
+            Cetak / Simpan PDF (A4)
+          </Btn>
+          <Btn
+            variant="secondary"
+            onClick={() => {
+              downloadBlob(buildOpnameCsv(p), `Opname_MC100_vs_Realisasi_${base}.csv`, 'text/csv;charset=utf-8');
+              notify('Berkas CSV opname diunduh.');
+            }}
+            className="w-full"
+          >
+            <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+            Ekspor Back-Up Opname (CSV)
+          </Btn>
+          <Btn
+            variant="secondary"
+            onClick={() => {
+              downloadBlob(JSON.stringify(p, null, 1), `SIPHO_${base}.json`, 'application/json');
+              notify('Berkas proyek (.json) diunduh.');
+            }}
+            className="w-full"
+          >
+            <FileJson className="h-5 w-5 text-sky-600" />
+            Simpan Proyek (.JSON)
+          </Btn>
+        </div>
+        <p className="mt-3 text-[11px] font-medium text-slate-500">
+          💡 Tips pencetakan: Pada dialog cetak peramban pilih ukuran kertas A4, margin "Sesuai default / None", dan pastikan opsi "Grafik latar belakang (Background graphics)" aktif.
+        </p>
       </div>
-      <div className="print-wrap overflow-x-auto pb-4">
-        <div className="doc print-root min-w-max">
+
+      <div className={cx('print-wrap overflow-x-auto pb-8', mobileFit && 'overflow-x-hidden flex justify-center')}>
+        <div
+          className={cx(
+            'doc print-root screen-scale transition-all duration-200',
+            mobileFit ? 'origin-top scale-[0.44] sm:scale-[0.62] md:scale-[0.80]' : 'min-w-max',
+          )}
+        >
           <BeritaAcara p={p} />
           <LampiranOpname p={p} />
           <LampiranDefect p={p} />

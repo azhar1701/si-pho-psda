@@ -210,29 +210,50 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
         </div>
       </Card>
 
-      {/* Banner kurang dimensi */}
+      {/* Banner Kurang Dimensi — Premium Industrial Safety Panel */}
       {seg.hasDimensionDeficit && (
-        <div className="rounded-xl border-4 border-red-700 bg-amber-300 p-4 text-slate-950 shadow">
-          <div className="flex gap-3">
-            <AlertTriangle className="h-8 w-8 shrink-0 text-red-700" />
-            <div>
-              <p className="text-[15px] font-black uppercase leading-snug">
-                Terindikasi kurang dimensi terhadap MC-100 — aktifkan pengambilan titik sampel tambahan (uji petik segmen)
-              </p>
-              <p className="mt-1 text-sm font-bold">
-                Parameter: {deficitLabels.join(', ')} · Toleransi τ = {fmt(tol, 3)} m
-                {seg.averageDeficitParams.length
-                  ? ` · Rerata terpilih masih kurang pada: ${seg.averageDeficitParams
-                      .map((k) => st.fields.find((f) => f.key === k)?.symbol ?? k)
-                      .join(', ')}`
-                  : ' · Rerata terpilih memenuhi'}
-              </p>
+        <div className="relative overflow-hidden rounded-2xl border border-amber-300/80 bg-gradient-to-r from-amber-500/10 via-amber-50/60 to-rose-50/40 p-4 sm:p-5 shadow-[0_4px_20px_rgba(245,158,11,0.08)]">
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-amber-500 to-red-600" />
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pl-1">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-slate-950 shadow-sm animate-pulse">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[14px] font-black uppercase tracking-wider text-amber-950">
+                    Terindikasi Kurang Dimensi terhadap MC-100
+                  </span>
+                  <span className="rounded-md bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                    Uji Petik Diperlukan
+                  </span>
+                </div>
+                <p className="text-xs font-semibold leading-relaxed text-slate-700">
+                  Parameter deviasi: <strong className="text-red-700">{deficitLabels.join(', ')}</strong> · Toleransi deviasi izin <span className="num font-bold">τ = {fmt(tol, 3)} m</span>
+                </p>
+                <p className="text-xs font-bold text-slate-800">
+                  {seg.averageDeficitParams.length ? (
+                    <span className="text-red-700">
+                      ⚠ Nilai rerata terpilih masih berada di bawah toleransi pada parameter:{' '}
+                      {seg.averageDeficitParams.map((k) => st.fields.find((f) => f.key === k)?.symbol ?? k).join(', ')}
+                    </span>
+                  ) : (
+                    <span className="text-emerald-700">
+                      ✓ Nilai rerata terpilih telah memenuhi batas toleransi
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
+            <Btn
+              variant="danger"
+              className="w-full sm:w-auto shrink-0 shadow-md hover:shadow-lg font-black text-sm"
+              onClick={addSample}
+            >
+              <Plus className="h-5 w-5" />
+              Tambah Titik Sampel (Uji Petik)
+            </Btn>
           </div>
-          <Btn variant="danger" className="mt-3 w-full" onClick={addSample}>
-            <Plus className="h-5 w-5" />
-            Tambah Titik Sampel Ukur (Uji Petik)
-          </Btn>
         </div>
       )}
 
@@ -469,29 +490,49 @@ function SampleCard({
   const setDim = (k: DimKey, v: number | undefined) =>
     onChange((s) => ({ ...s, dimensions: { ...s.dimensions, [k]: v }, recordedAt: new Date().toISOString() }));
   return (
-    <div className={cx('rounded-xl border-2 p-3', smp.isSelected ? 'border-slate-900 bg-white' : 'border-dashed border-slate-300 bg-slate-50')}>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => onChange((s) => ({ ...s, isSelected: !s.isSelected }))}
-          className={cx(
-            'flex h-12 shrink-0 items-center gap-2 rounded-lg border-2 px-3 text-sm font-extrabold',
-            smp.isSelected ? 'border-emerald-800 bg-emerald-700 text-white' : 'border-slate-400 bg-white text-slate-600',
-          )}
-          aria-pressed={smp.isSelected}
-        >
-          {smp.isSelected ? <CheckSquare className="h-6 w-6" /> : <Square className="h-6 w-6" />}
-          {smp.isSelected ? 'Direrata' : 'Diabaikan'}
-        </button>
+    <div
+      className={cx(
+        'rounded-2xl border p-3.5 sm:p-4 transition-all duration-150',
+        smp.isSelected
+          ? 'border-slate-300 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]'
+          : 'border-dashed border-slate-300/80 bg-slate-50/70 opacity-80',
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => onChange((s) => ({ ...s, isSelected: true }))}
+            className={cx(
+              'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-black transition',
+              smp.isSelected ? 'bg-emerald-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900',
+            )}
+          >
+            <CheckSquare className="h-4 w-4" />
+            Direrata
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange((s) => ({ ...s, isSelected: false }))}
+            className={cx(
+              'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-black transition',
+              !smp.isSelected ? 'bg-slate-700 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800',
+            )}
+          >
+            <Square className="h-4 w-4" />
+            Diabaikan
+          </button>
+        </div>
         <input
           value={smp.sampleLabel}
           onChange={(e) => onChange((s) => ({ ...s, sampleLabel: e.target.value }))}
-          className="order-last h-12 w-full min-w-0 rounded-lg border-2 border-slate-200 px-2 text-sm font-bold outline-none focus:border-slate-900 sm:order-none sm:w-auto sm:flex-1"
+          className="order-last h-11 w-full min-w-0 rounded-xl border-2 border-slate-200 bg-slate-50/40 px-3 text-sm font-bold text-slate-900 outline-none transition focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10 sm:order-none sm:w-auto sm:flex-1"
         />
         {onDelete && <span className="flex-1 sm:hidden" />}
         {onDelete && (
           <button
             onClick={onDelete}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-red-700 hover:bg-red-50"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition"
             aria-label="Hapus sampel"
           >
             <Trash2 className="h-5 w-5" />

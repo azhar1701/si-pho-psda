@@ -35,59 +35,87 @@ export default function SegmentsView({ project, update, selectedId, setSelectedI
   const open = (id: string) => { setSelectedId(id); setMobileEdit(true); window.scrollTo({ top: 0 }); };
 
   return (
-    <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-4">
-      <div className={cx('space-y-3', mobileEdit && 'hidden lg:block')}>
-        <div className="space-y-2">
+    <div className="lg:grid lg:grid-cols-[390px_minmax(0,1fr)] lg:gap-4">
+      <div className={cx('space-y-3.5', mobileEdit && 'hidden lg:block')}>
+        <div className="space-y-2.5">
           <div className="grid grid-cols-3 gap-2">
-            {[
-              ['STA Diperiksa', `${sum.measured}/${sum.total}`],
-              ['Capaian Volume', `${fmt(sum.achievement, 2)}%`],
-              ['Cacat Mutu', String(sum.defects.length)],
-            ].map(([k, v]) => (
-              <div key={k} className="rounded-xl border border-slate-300 bg-white px-3 py-2">
-                <div className="text-[11px] font-bold uppercase text-slate-500">{k}</div>
-                <div className="num text-xl font-extrabold text-slate-900">{v}</div>
-              </div>
-            ))}
+            <div className="rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/80 via-white to-white px-3 py-2.5 shadow-2xs">
+              <div className="text-[10px] font-black uppercase tracking-wider text-indigo-700">STA Diperiksa</div>
+              <div className="num text-xl font-black text-indigo-950 mt-0.5">{sum.measured}/{sum.total}</div>
+            </div>
+            <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/80 via-white to-white px-3 py-2.5 shadow-2xs">
+              <div className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Capaian Vol</div>
+              <div className="num text-xl font-black text-emerald-950 mt-0.5">{fmt(sum.achievement, 2)}%</div>
+            </div>
+            <div className="rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50/80 via-white to-white px-3 py-2.5 shadow-2xs">
+              <div className="text-[10px] font-black uppercase tracking-wider text-rose-700">Cacat Mutu</div>
+              <div className="num text-xl font-black text-rose-950 mt-0.5">{sum.defects.length}</div>
+            </div>
           </div>
-          <div className="rounded-xl border border-slate-300 bg-white p-2.5 space-y-1.5">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-3 space-y-2 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
             <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-              <span>Progres Opname Lapangan</span>
-              <span className="num font-extrabold text-slate-900">
+              <span className="flex items-center gap-1.5 font-black uppercase text-[11px] tracking-wide text-slate-800">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Progres Opname Lapangan
+              </span>
+              <span className="num font-black text-slate-900 text-sm">
                 {sum.total > 0 ? Math.round((sum.measured / sum.total) * 100) : 0}%
               </span>
             </div>
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 p-0.5 border border-slate-200/60">
               <div
-                className="h-full bg-emerald-600 transition-all duration-300"
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all duration-300"
                 style={{ width: `${sum.total > 0 ? (sum.measured / sum.total) * 100 : 0}%` }}
               />
             </div>
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 pt-0.5">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 pt-0.5">
               <span className="text-emerald-700">✓ {sum.pass} Memenuhi</span>
-              {sum.fail > 0 && <span className="text-red-700 font-bold">⚠ {sum.fail} Perlu Perbaikan</span>}
-              <span className="text-slate-500">○ {sum.pending} Belum Diukur</span>
+              {sum.fail > 0 && <span className="text-red-700 font-extrabold">⚠ {sum.fail} Perlu Perbaikan</span>}
+              <span className="text-slate-400">○ {sum.pending} Belum Diukur</span>
             </div>
           </div>
         </div>
-        <Btn variant="primary" className="w-full text-base" onClick={() => setAdding(true)}>
-          <Plus className="h-6 w-6" />Tambah Segmen STA / Bangunan
+        <Btn variant="primary" className="w-full text-sm font-black shadow-md hover:shadow-lg" onClick={() => setAdding(true)}>
+          <Plus className="h-5 w-5 text-amber-400" />Tambah Segmen STA / Bangunan
         </Btn>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari STA / nama bangunan" className="h-12 w-full rounded-lg border-2 border-slate-300 bg-white pl-10 pr-3 font-semibold outline-none focus:border-slate-900" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cari STA / nama ruas / bangunan..."
+            className="h-11 w-full rounded-xl border-2 border-slate-200 bg-slate-50/50 pl-10 pr-9 text-sm font-bold text-slate-800 outline-none transition focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/10 placeholder:font-normal placeholder:text-slate-400"
+          />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
+              aria-label="Hapus pencarian"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {list.map((s) => {
             const defects = s.defects.filter((d) => d.entryType === 'CACAT_MUTU').length;
+            const isSel = s.id === selectedId;
             return (
               <li key={s.id}>
-                <button onClick={() => open(s.id)}
-                  className={cx('w-full rounded-xl border-2 bg-white p-3 text-left shadow-sm transition', s.id === selectedId ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-slate-200 hover:border-slate-400')}>
+                <button
+                  onClick={() => open(s.id)}
+                  className={cx(
+                    'w-full rounded-2xl border-2 p-3.5 text-left transition-all duration-150',
+                    isSel
+                      ? 'border-amber-500 bg-amber-50/40 shadow-md ring-2 ring-amber-500/15 border-l-6 border-l-amber-500'
+                      : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm',
+                  )}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="font-mono text-[15px] font-extrabold text-slate-900">{s.staCode}</div>
-                      <div className="truncate text-sm font-semibold text-slate-600">{s.structureName || '-'}</div>
+                      <div className="font-mono text-[15px] font-black tracking-tight text-slate-900">{s.staCode}</div>
+                      <div className="truncate text-xs font-bold text-slate-600 mt-0.5">{s.structureName || '-'}</div>
                     </div>
                     <StatusBadge status={s.evaluationStatus} />
                   </div>
