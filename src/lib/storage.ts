@@ -1,77 +1,267 @@
 import type { PHOProject } from '../types';
+import { CURRENT_SCHEMA_VERSION } from '../types';
 import { recomputeProject } from './calc';
 import { blankProject } from './factory';
+import { validateProjectSchema } from './schema';
 
-const LS_KEY = 'sipho-psda:project:v1';
+const LS_KEY_V2 = 'sipho-psda:project:v2';
+const LS_KEY_V1 = 'sipho-psda:project:v1';
 const LS_MODE = 'sipho-psda:storage-mode';
-const LS_APIKEY = 'sipho-psda:gemini-key';
+const SS_APIKEY = 'sipho-psda:gemini-key';
 const DB_NAME = 'sipho-psda';
 const STORE = 'kv';
+const PHOTO_STORE = 'photos';
+const DB_VERSION = 2;
 
 export type StorageMode = 'localStorage' | 'indexedDB';
 
-const openDb = () =>
-  new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+// In-memory fallback untuk Safari Private Mode atau saat Storage API diblokir
+const memoryStore = new Map<string, string>();
+
+const safeStorage = {
+  getItem: (storage: Storage, key: string): string | null => {
+    try {
+      return storage.getItem(key);
+    } catch {
+      return memoryStore.get(key) ?? null;
+    }
+  },
+  setItem: (storage: Storage, key: string, val: string): void => {
+    try {
+      storage.setItem(key, val);
+    } catch {
+      memoryStore.set(key, val);
+    }
+  },
+  removeItem: (storage: Storage, key: string): void => {
+    try {
+      storage.removeItem(key);
+    } catch {
+      memoryStore.delete(key);
+    }
+  },
+};
+
+// Singleton IndexedDB connection
+let _dbPromise: Promise<IDBDatabase> | null = null;
+
+export const getDb = (): Promise<IDBDatabase> => {
+  if (_dbPromise) return _dbPromise;
+
+  _dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE);
+      }
+      if (!db.objectStoreNames.contains(PHOTO_STORE)) {
+        db.createObjectStore(PHOTO_STORE);
+      }
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => {
+        db.close();
+        _dbPromise = null;
+      };
+      db.onerror = () => {
+        _dbPromise = null;
+      };
+      resolve(db);
+    };
+    req.onerror = () => {
+      _dbPromise = null;
+      reject(req.error);
+    };
   });
 
+  return _dbPromise;
+};
+
 const idbPut = async (key: string, val: string) => {
-  const db = await openDb();
+  const db = await getDb();
   await new Promise<void>((res, rej) => {
     const tx = db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).put(val, key);
     tx.oncomplete = () => res();
     tx.onerror = () => rej(tx.error);
   });
-  db.close();
 };
 
 const idbGet = async (key: string) => {
-  const db = await openDb();
-  const v = await new Promise<string | undefined>((res, rej) => {
+  const db = await getDb();
+  return await new Promise<string | undefined>((res, rej) => {
     const tx = db.transaction(STORE, 'readonly');
     const r = tx.objectStore(STORE).get(key);
     r.onsuccess = () => res(r.result as string | undefined);
     r.onerror = () => rej(r.error);
   });
-  db.close();
-  return v;
+};
+
+// --- PHOTO BLOB STORAGE (IndexedDB) ---
+export const dataUrlToBlob = (dataUrl: string): Blob => {
+  const parts = dataUrl.split(',');
+  const mime = parts[0]?.match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bin = atob(parts[1] || '');
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    u8[i] = bin.charCodeAt(i);
+  }
+  return new Blob([u8], { type: mime });
+};
+
+export const savePhoto = async (id: string, data: string | Blob): Promise<void> => {
+  const blob = typeof data === 'string' ? dataUrlToBlob(data) : data;
+  const db = await getDb();
+  await new Promise<void>((res, rej) => {
+    const tx = db.transaction(PHOTO_STORE, 'readwrite');
+    tx.objectStore(PHOTO_STORE).put(blob, id);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+};
+
+const _objectUrlCache = new Map<string, string>();
+
+export const loadPhotoUrl = async (id: string): Promise<string | null> => {
+  if (!id) return null;
+  if (_objectUrlCache.has(id)) return _objectUrlCache.get(id)!;
+  try {
+    const db = await getDb();
+    const blob = await new Promise<Blob | undefined>((res, rej) => {
+      const tx = db.transaction(PHOTO_STORE, 'readonly');
+      const r = tx.objectStore(PHOTO_STORE).get(id);
+      r.onsuccess = () => res(r.result as Blob | undefined);
+      r.onerror = () => rej(r.error);
+    });
+    if (!blob) return null;
+    const url = URL.createObjectURL(blob);
+    _objectUrlCache.set(id, url);
+    return url;
+  } catch (err) {
+    console.warn(`Gagal memuat foto ${id} dari IndexedDB:`, err);
+    return null;
+  }
+};
+
+export const deletePhoto = async (id: string): Promise<void> => {
+  if (_objectUrlCache.has(id)) {
+    URL.revokeObjectURL(_objectUrlCache.get(id)!);
+    _objectUrlCache.delete(id);
+  }
+  try {
+    const db = await getDb();
+    await new Promise<void>((res, rej) => {
+      const tx = db.transaction(PHOTO_STORE, 'readwrite');
+      tx.objectStore(PHOTO_STORE).delete(id);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  } catch (err) {
+    console.warn(`Gagal menghapus foto ${id}:`, err);
+  }
+};
+
+/** Migrasi foto legacy base64 dataUrl ke IndexedDB Blob store */
+export const migrateProjectPhotos = async (p: PHOProject): Promise<PHOProject> => {
+  let changed = false;
+  const updatedSegments = await Promise.all(
+    p.segments.map(async (seg) => {
+      let segChanged = false;
+      const updatedDefects = await Promise.all(
+        seg.defects.map(async (def) => {
+          if (!def.watermarkedPhotoId && def.watermarkedPhotoDataUrl && def.watermarkedPhotoDataUrl.startsWith('data:')) {
+            const photoId = `pho_${def.id}`;
+            try {
+              await savePhoto(photoId, def.watermarkedPhotoDataUrl);
+              segChanged = true;
+              changed = true;
+              return {
+                ...def,
+                watermarkedPhotoId: photoId,
+                watermarkedPhotoDataUrl: undefined,
+              };
+            } catch (err) {
+              console.warn('Gagal migrasi foto defect:', err);
+              return def;
+            }
+          }
+          return def;
+        })
+      );
+      if (segChanged) {
+        return { ...seg, defects: updatedDefects };
+      }
+      return seg;
+    })
+  );
+
+  if (changed || p.schemaVersion < CURRENT_SCHEMA_VERSION) {
+    return {
+      ...p,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      segments: updatedSegments,
+    };
+  }
+  return p;
 };
 
 /** Normalisasi berkas proyek (impor JSON / versi lama) agar seluruh kolom wajib tersedia */
 export const normalizeProject = (raw: unknown): PHOProject => {
   const base = blankProject();
   const r = (raw ?? {}) as Partial<PHOProject>;
-  if (!Array.isArray(r.segments)) throw new Error('Struktur berkas proyek tidak valid: daftar segmen (segments) tidak ditemukan.');
-  const p: PHOProject = {
+  if (!Array.isArray(r.segments)) {
+    throw new Error('Struktur berkas proyek tidak valid: daftar segmen (segments) tidak ditemukan.');
+  }
+
+  const merged = {
     ...base,
     ...r,
+    schemaVersion: r.schemaVersion ?? CURRENT_SCHEMA_VERSION,
     agencyHeader: { ...base.agencyHeader, ...(r.agencyHeader ?? {}) },
     contractInfo: { ...base.contractInfo, ...(r.contractInfo ?? {}) },
     inspectionTeam: { ...base.inspectionTeam, ...(r.inspectionTeam ?? {}) },
     conclusionMode: r.conclusionMode ?? 'OTOMATIS',
     segments: r.segments.map((s) => ({
       ...s,
-      samples: (s.samples ?? []).map((x) => ({ ...x, isSelected: x.isSelected !== false, dimensions: x.dimensions ?? {} })),
+      samples: (s.samples ?? []).map((x) => ({
+        ...x,
+        isSelected: x.isSelected !== false,
+        dimensions: x.dimensions ?? {},
+      })),
       visualChecklist: s.visualChecklist ?? [],
-      defects: (s.defects ?? []).map((d) => ({ ...d, entryType: d.entryType ?? 'CACAT_MUTU', positionSide: d.positionSide ?? s.positionSide })),
+      defects: (s.defects ?? []).map((d) => ({
+        ...d,
+        entryType: d.entryType ?? 'CACAT_MUTU',
+        positionSide: d.positionSide ?? s.positionSide,
+        watermarkedPhotoId: d.watermarkedPhotoId ?? '',
+      })),
       deficitParams: s.deficitParams ?? [],
       averageDeficitParams: s.averageDeficitParams ?? [],
       mc100Dimensions: s.mc100Dimensions ?? {},
     })),
   };
-  return recomputeProject(p);
+
+  const validated = validateProjectSchema(merged);
+  return recomputeProject(validated);
 };
 
 export const loadProject = async (): Promise<PHOProject | null> => {
   try {
-    const mode = (localStorage.getItem(LS_MODE) as StorageMode) || 'localStorage';
-    const txt = mode === 'indexedDB' ? await idbGet(LS_KEY) : localStorage.getItem(LS_KEY);
+    const mode = (safeStorage.getItem(localStorage, LS_MODE) as StorageMode) || 'localStorage';
+    let txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V2) : safeStorage.getItem(localStorage, LS_KEY_V2);
+    
+    // Fallback load from v1 if v2 does not exist
+    if (!txt) {
+      txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V1) : safeStorage.getItem(localStorage, LS_KEY_V1);
+    }
+    
     if (!txt) return null;
-    return normalizeProject(JSON.parse(txt));
+    const project = normalizeProject(JSON.parse(txt));
+    // Asynchronously trigger photo migration if needed
+    const migrated = await migrateProjectPhotos(project);
+    return migrated;
   } catch (e) {
     console.error('Gagal memuat proyek lokal', e);
     return null;
@@ -82,14 +272,14 @@ export const loadProject = async (): Promise<PHOProject | null> => {
 export const saveProject = async (p: PHOProject): Promise<StorageMode> => {
   const txt = JSON.stringify(p);
   try {
-    localStorage.setItem(LS_KEY, txt);
-    localStorage.setItem(LS_MODE, 'localStorage');
+    safeStorage.setItem(localStorage, LS_KEY_V2, txt);
+    safeStorage.setItem(localStorage, LS_MODE, 'localStorage');
     return 'localStorage';
   } catch {
-    await idbPut(LS_KEY, txt);
+    await idbPut(LS_KEY_V2, txt);
     try {
-      localStorage.removeItem(LS_KEY);
-      localStorage.setItem(LS_MODE, 'indexedDB');
+      safeStorage.removeItem(localStorage, LS_KEY_V2);
+      safeStorage.setItem(localStorage, LS_MODE, 'indexedDB');
     } catch {
       /* abaikan */
     }
@@ -97,17 +287,19 @@ export const saveProject = async (p: PHOProject): Promise<StorageMode> => {
   }
 };
 
-export const getStoredApiKey = () => {
+// API Key disimpan di sessionStorage agar tidak tersimpan permanen di disk (K-02)
+export const getStoredApiKey = (): string => {
   try {
-    return localStorage.getItem(LS_APIKEY) || '';
+    return safeStorage.getItem(sessionStorage, SS_APIKEY) || '';
   } catch {
     return '';
   }
 };
-export const setStoredApiKey = (k: string) => {
+
+export const setStoredApiKey = (k: string): void => {
   try {
-    if (k) localStorage.setItem(LS_APIKEY, k);
-    else localStorage.removeItem(LS_APIKEY);
+    if (k) safeStorage.setItem(sessionStorage, SS_APIKEY, k);
+    else safeStorage.removeItem(sessionStorage, SS_APIKEY);
   } catch {
     /* abaikan */
   }

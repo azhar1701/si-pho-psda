@@ -64,7 +64,8 @@ export interface DefectItem {
   analysisSource: 'GEMINI_VISION' | 'MANUAL_PRESET';
   positionSide: PositionSide;
   gpsCoordinates: { latitude: number | null; longitude: number | null; accuracyMeter: number | null };
-  watermarkedPhotoDataUrl: string;
+  watermarkedPhotoId: string;
+  watermarkedPhotoDataUrl?: string; // Format legacy v1 / fallback
   capturedAt: string;
 }
 
@@ -104,6 +105,8 @@ export interface InspectionSegment {
 }
 
 export type ConclusionMode = 'OTOMATIS' | 'DAPAT_DITERIMA' | 'DITERIMA_DENGAN_CATATAN' | 'BELUM_DAPAT_DITERIMA';
+
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export interface PHOProject {
   id: string;

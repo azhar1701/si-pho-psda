@@ -9,6 +9,7 @@ import ProjectView from './components/ProjectView';
 import SegmentsView from './components/SegmentsView';
 import CameraView from './components/CameraView';
 import ReportView from './components/ReportView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export type ViewId = 'proyek' | 'segmen' | 'kamera' | 'laporan';
 export type Updater = (fn: (p: PHOProject) => PHOProject) => void;
@@ -22,6 +23,7 @@ const NAV: { id: ViewId; label: string; icon: typeof Camera }[] = [
 
 export default function App() {
   const [project, setProject] = useState<PHOProject | null>(null);
+  const [loadingStep, setLoadingStep] = useState<string>('Memeriksa basis data lokal IndexedDB…');
   const [view, setView] = useState<ViewId>('segmen');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -36,33 +38,58 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const stored = await loadProject();
-      const p = stored ?? (await buildDemoProject());
-      setProject(p);
-      setSelectedId(p.segments[0]?.id ?? null);
+      try {
+        setLoadingStep('Memuat data proyek tersimpan…');
+        const stored = await loadProject();
+        if (stored) {
+          setProject(stored);
+          setSelectedId(stored.segments[0]?.id ?? null);
+        } else {
+          setLoadingStep('Menyiapkan proyek contoh D.I. Lakbok Utara…');
+          const demo = await buildDemoProject();
+          setProject(demo);
+          setSelectedId(demo.segments[0]?.id ?? null);
+        }
+      } catch (err) {
+        notify('Gagal inisialisasi basis data: ' + (err as Error).message, 'err');
+      }
     })();
+
     const on = () => setOnline(true);
     const off = () => setOnline(false);
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
-  }, []);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, [notify]);
 
+  // Debounce penyimpanan otomatis ke 1200ms agar efisien saat pengetikan cepat (M-02)
   useEffect(() => {
     if (!project) return;
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
       try {
         const mode = await saveProject(project);
-        setSaveState({ mode, at: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) });
+        setSaveState({
+          mode,
+          at: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        });
       } catch (e) {
         notify('Penyimpanan lokal gagal: ' + (e as Error).message, 'err');
       }
-    }, 350);
+    }, 1200);
   }, [project, notify]);
 
+  // Update dengan recomputasi geometris & hidraulis untuk perubahan dimensi (K-04)
   const update: Updater = useCallback((fn) => {
     setProject((prev) => (prev ? recomputeProject({ ...fn(prev), updatedAt: new Date().toISOString() }) : prev));
+  }, []);
+
+  // Update khusus metadata teks (tanpa recomputasi segmen berulang pada setiap keystroke) (K-04)
+  const updateMeta: Updater = useCallback((fn) => {
+    setProject((prev) => (prev ? { ...fn(prev), updatedAt: new Date().toISOString() } : prev));
   }, []);
 
   const replaceProject = useCallback((p: PHOProject) => {
@@ -73,13 +100,17 @@ export default function App() {
   if (!project) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#0f172a] text-white">
-        <Loader2 className="h-10 w-10 animate-spin" />
-        <p className="text-sm font-semibold tracking-wide">Memuat data proyek lokal…</p>
+        <Loader2 className="h-10 w-10 animate-spin text-amber-400" />
+        <p className="text-sm font-semibold tracking-wide text-slate-200">{loadingStep}</p>
+        <span className="text-xs text-slate-400">SI-PHO PSDA · Offline First PWA</span>
       </div>
     );
   }
 
-  const go = (v: ViewId) => { setView(v); window.scrollTo({ top: 0 }); };
+  const go = (v: ViewId) => {
+    setView(v);
+    window.scrollTo({ top: 0 });
+  };
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -105,34 +136,77 @@ export default function App() {
         </div>
         <nav className="mx-auto hidden max-w-[1600px] gap-1 px-6 pb-2 lg:flex">
           {NAV.map((n) => (
-            <button key={n.id} onClick={() => go(n.id)}
-              className={cx('flex h-11 items-center gap-2 rounded-lg px-4 text-sm font-bold', view === n.id ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-slate-800')}>
-              <n.icon className="h-5 w-5" />{n.label}
+            <button
+              key={n.id}
+              onClick={() => go(n.id)}
+              className={cx(
+                'flex h-11 items-center gap-2 rounded-lg px-4 text-sm font-bold transition',
+                view === n.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-200 hover:bg-slate-800',
+              )}
+            >
+              <n.icon className="h-5 w-5" />
+              {n.label}
             </button>
           ))}
         </nav>
       </header>
 
       <main className="mx-auto max-w-[1600px] px-3 pb-28 pt-3 lg:px-6 lg:pb-10">
-        {view === 'proyek' && <ProjectView project={project} update={update} replaceProject={replaceProject} notify={notify} />}
-        {view === 'segmen' && <SegmentsView project={project} update={update} selectedId={selectedId} setSelectedId={setSelectedId} notify={notify} openCamera={() => go('kamera')} />}
-        {view === 'kamera' && <CameraView project={project} update={update} selectedId={selectedId} setSelectedId={setSelectedId} notify={notify} online={online} />}
-        {view === 'laporan' && <ReportView project={project} notify={notify} />}
+        <ErrorBoundary fallbackTitle="Kendala pada Tampilan Aplikasi">
+          <div key={view} className="view-enter">
+            {view === 'proyek' && (
+              <ProjectView project={project} update={update} updateMeta={updateMeta} replaceProject={replaceProject} notify={notify} />
+            )}
+            {view === 'segmen' && (
+              <SegmentsView
+                project={project}
+                update={update}
+                selectedId={selectedId}
+                setSelectedId={setSelectedId}
+                notify={notify}
+                openCamera={() => go('kamera')}
+              />
+            )}
+            {view === 'kamera' && (
+              <CameraView
+                project={project}
+                update={update}
+                selectedId={selectedId}
+                setSelectedId={setSelectedId}
+                notify={notify}
+                online={online}
+              />
+            )}
+            {view === 'laporan' && <ReportView project={project} notify={notify} />}
+          </div>
+        </ErrorBoundary>
       </main>
 
       <nav className="no-print safe-bottom fixed inset-x-0 bottom-0 z-30 border-t-2 border-slate-800 bg-[#0f172a] lg:hidden">
         <div className="grid grid-cols-4">
           {NAV.map((n) => (
-            <button key={n.id} onClick={() => go(n.id)}
-              className={cx('flex h-16 flex-col items-center justify-center gap-0.5 text-[11px] font-bold', view === n.id ? 'bg-white text-slate-900' : 'text-slate-300')}>
-              <n.icon className="h-6 w-6" />{n.label}
+            <button
+              key={n.id}
+              onClick={() => go(n.id)}
+              className={cx(
+                'flex h-16 flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition',
+                view === n.id ? 'bg-white text-slate-900' : 'text-slate-300',
+              )}
+            >
+              <n.icon className="h-6 w-6" />
+              {n.label}
             </button>
           ))}
         </div>
       </nav>
 
       {toast && (
-        <div className={cx('no-print fixed inset-x-3 bottom-20 z-50 mx-auto max-w-lg rounded-lg px-4 py-3 text-sm font-bold text-white shadow-xl lg:bottom-6', toast.tone === 'ok' ? 'bg-slate-900' : 'bg-red-700')}>
+        <div
+          className={cx(
+            'no-print fixed inset-x-3 bottom-20 z-50 mx-auto max-w-lg rounded-xl px-4 py-3 text-sm font-bold text-white shadow-2xl lg:bottom-6 animate-in fade-in duration-200',
+            toast.tone === 'ok' ? 'bg-slate-900 border border-slate-700' : 'bg-red-700 border border-red-500',
+          )}
+        >
           {toast.msg}
         </div>
       )}

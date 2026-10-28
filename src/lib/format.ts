@@ -1,12 +1,21 @@
-export const uid = (p = 'id') => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+export const uid = (p = 'id') => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${p}_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  }
+  return `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+};
 
 export const fmt = (v: number | undefined | null, d = 2): string => {
   if (v === undefined || v === null || !Number.isFinite(v)) return '-';
   return v.toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
 };
 
-export const fmtDim = (v: number | undefined | null, kind: 'dim' | 'count' | 'ratio' = 'dim') =>
-  kind === 'count' ? (v === undefined || v === null || !Number.isFinite(v) ? '-' : Number.isInteger(v) ? String(v) : fmt(v, 2)) : fmt(v, 2);
+export const fmtDim = (v: number | undefined | null, kind: 'dim' | 'count' | 'ratio' = 'dim') => {
+  if (v === undefined || v === null || !Number.isFinite(v)) return '-';
+  if (kind === 'count') return Number.isInteger(v) ? String(v) : fmt(v, 2);
+  if (kind === 'ratio') return fmt(v, 2);
+  return fmt(v, 3);
+};
 
 export const fmtIdr = (v: number) => 'Rp ' + (Number.isFinite(v) ? v : 0).toLocaleString('id-ID', { maximumFractionDigits: 0 }) + ',-';
 
@@ -26,6 +35,7 @@ const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', '
 
 const SATUAN = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
 export const terbilang = (x: number): string => {
+  if (x < 0) return `minus ${terbilang(-x)}`;
   const v = Math.floor(Math.abs(x));
   if (v < 12) return SATUAN[v] || (v === 0 ? 'nol' : '');
   if (v < 20) return `${terbilang(v - 10)} belas`;

@@ -108,6 +108,7 @@ export const projectSummary = (p: PHOProject) => {
     pass: segs.filter((s) => s.evaluationStatus === 'MEMENUHI' || s.evaluationStatus === 'KURANG_DIMENSI_TERTOLERANSI').length,
     fail: segs.filter((s) => s.evaluationStatus === 'PERLU_PERBAIKAN').length,
     pending: segs.filter((s) => s.evaluationStatus === 'BELUM_DIUKUR').length,
+    checklistFails: segs.reduce((a, s) => a + s.visualChecklist.filter((c) => c.status === 'TIDAK_SESUAI').length, 0),
     mcVol,
     actVol,
     mcVolMeasured,
@@ -119,10 +120,16 @@ export const projectSummary = (p: PHOProject) => {
   };
 };
 
+/**
+ * Logika penentuan kesimpulan PHO otomatis:
+ * 1. BELUM_DAPAT_DITERIMA: jika ada cacat KRITIS atau segmen yang belum diukur sama sekali.
+ * 2. DITERIMA_DENGAN_CATATAN: jika ada cacat mutu (mayor/minor), checklist TIDAK_SESUAI, atau segmen perlu perbaikan.
+ * 3. DAPAT_DITERIMA: seluruh segmen terukur dan memenuhi toleransi tanpa temuan cacat.
+ */
 export const resolveConclusion = (p: PHOProject) => {
   if (p.conclusionMode !== 'OTOMATIS') return p.conclusionMode;
   const s = projectSummary(p);
   if (s.kritis > 0 || s.pending > 0) return 'BELUM_DAPAT_DITERIMA' as const;
-  if (s.fail > 0 || s.defects.length > 0) return 'DITERIMA_DENGAN_CATATAN' as const;
+  if (s.fail > 0 || s.defects.length > 0 || s.checklistFails > 0) return 'DITERIMA_DENGAN_CATATAN' as const;
   return 'DAPAT_DITERIMA' as const;
 };

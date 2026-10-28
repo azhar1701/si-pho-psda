@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode, type ButtonHTMLAttributes } from 'react';
+import { forwardRef, useEffect, useState, type ReactNode, type ButtonHTMLAttributes } from 'react';
 import { parseNum } from '../lib/format';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -88,31 +88,39 @@ export function SelectField<T extends string>(props: { label: string; value: T; 
 }
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'warning' | 'ghost' | 'success';
-export function Btn({ variant = 'secondary', className, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
-  const v: Record<Variant, string> = {
-    primary: 'bg-slate-900 text-white hover:bg-slate-800 active:bg-black',
-    secondary: 'bg-white text-slate-900 border-2 border-slate-300 hover:border-slate-500',
-    danger: 'bg-red-700 text-white hover:bg-red-800',
-    warning: 'bg-amber-400 text-slate-950 border-2 border-amber-600 hover:bg-amber-300',
-    ghost: 'bg-transparent text-slate-700 hover:bg-slate-100',
-    success: 'bg-emerald-700 text-white hover:bg-emerald-800',
-  };
-  return (
-    <button
-      {...rest}
-      className={cx('inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg px-4 text-[15px] font-bold transition disabled:cursor-not-allowed disabled:opacity-50', v[variant], className)}
-    >
-      {children}
-    </button>
-  );
-}
+export const Btn = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }>(
+  ({ variant = 'secondary', className, children, ...rest }, ref) => {
+    const v: Record<Variant, string> = {
+      primary: 'bg-slate-900 text-white hover:bg-slate-800 active:bg-black',
+      secondary: 'bg-white text-slate-900 border-2 border-slate-300 hover:border-slate-500',
+      danger: 'bg-red-700 text-white hover:bg-red-800',
+      warning: 'bg-amber-400 text-slate-950 border-2 border-amber-600 hover:bg-amber-300',
+      ghost: 'bg-transparent text-slate-700 hover:bg-slate-100',
+      success: 'bg-emerald-700 text-white hover:bg-emerald-800',
+    };
+    return (
+      <button
+        ref={ref}
+        {...rest}
+        className={cx(
+          'inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg px-4 text-[15px] font-bold transition disabled:cursor-not-allowed disabled:opacity-50',
+          v[variant],
+          className,
+        )}
+      >
+        {children}
+      </button>
+    );
+  },
+);
+Btn.displayName = 'Btn';
 
 export function Card({ title, icon, right, children, className }: { title?: ReactNode; icon?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={cx('rounded-xl border border-slate-300 bg-white shadow-sm', className)}>
       {title && (
         <header className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
-          <h3 className="flex items-center gap-2 text-[15px] font-extrabold uppercase tracking-wide text-slate-900">{icon}{title}</h3>
+          <h2 className="flex items-center gap-2 text-[15px] font-extrabold uppercase tracking-wide text-slate-900">{icon}{title}</h2>
           {right}
         </header>
       )}

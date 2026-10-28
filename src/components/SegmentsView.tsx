@@ -37,19 +37,42 @@ export default function SegmentsView({ project, update, selectedId, setSelectedI
   return (
     <div className="lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:gap-4">
       <div className={cx('space-y-3', mobileEdit && 'hidden lg:block')}>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            ['STA Diperiksa', `${sum.measured}/${sum.total}`],
-            ['Capaian Volume', `${fmt(sum.achievement, 2)}%`],
-            ['Cacat Mutu', String(sum.defects.length)],
-          ].map(([k, v]) => (
-            <div key={k} className="rounded-xl border border-slate-300 bg-white px-3 py-2">
-              <div className="text-[11px] font-bold uppercase text-slate-500">{k}</div>
-              <div className="num text-xl font-extrabold text-slate-900">{v}</div>
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ['STA Diperiksa', `${sum.measured}/${sum.total}`],
+              ['Capaian Volume', `${fmt(sum.achievement, 2)}%`],
+              ['Cacat Mutu', String(sum.defects.length)],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-xl border border-slate-300 bg-white px-3 py-2">
+                <div className="text-[11px] font-bold uppercase text-slate-500">{k}</div>
+                <div className="num text-xl font-extrabold text-slate-900">{v}</div>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border border-slate-300 bg-white p-2.5 space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+              <span>Progres Opname Lapangan</span>
+              <span className="num font-extrabold text-slate-900">
+                {sum.total > 0 ? Math.round((sum.measured / sum.total) * 100) : 0}%
+              </span>
             </div>
-          ))}
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full bg-emerald-600 transition-all duration-300"
+                style={{ width: `${sum.total > 0 ? (sum.measured / sum.total) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 pt-0.5">
+              <span className="text-emerald-700">✓ {sum.pass} Memenuhi</span>
+              {sum.fail > 0 && <span className="text-red-700 font-bold">⚠ {sum.fail} Perlu Perbaikan</span>}
+              <span className="text-slate-500">○ {sum.pending} Belum Diukur</span>
+            </div>
+          </div>
         </div>
-        <Btn variant="primary" className="w-full text-base" onClick={() => setAdding(true)}><Plus className="h-6 w-6" />Tambah Segmen STA / Bangunan</Btn>
+        <Btn variant="primary" className="w-full text-base" onClick={() => setAdding(true)}>
+          <Plus className="h-6 w-6" />Tambah Segmen STA / Bangunan
+        </Btn>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari STA / nama bangunan" className="h-12 w-full rounded-lg border-2 border-slate-300 bg-white pl-10 pr-3 font-semibold outline-none focus:border-slate-900" />

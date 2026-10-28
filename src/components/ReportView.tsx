@@ -9,6 +9,7 @@ import { addDays, fmt, fmtDim, fmtIdr, kalimatTanggal, stempelWaktu, tanggalPanj
 import { buildOpnameCsv } from '../lib/csv';
 import { downloadBlob, safeFileName } from '../lib/storage';
 import { gpsText } from '../lib/inspection';
+import { PhotoThumbnail } from './PhotoThumbnail';
 
 export default function ReportView({ project: p, notify }: { project: PHOProject; notify: (m: string, t?: 'ok' | 'err') => void }) {
   const base = `${safeFileName(p.contractInfo.packageName)}_${p.inspectionTeam.inspectionDate}`;
@@ -272,7 +273,15 @@ function LampiranDefect({ p }: { p: PHOProject }) {
             <tr key={d.id}>
               <td className="text-center">{i + 1}</td>
               <td><b>{s.staCode}</b><br />{s.structureName}<br />Posisi: {POSITION_LABEL[d.positionSide]}<br />GPS: {gpsText(d.gpsCoordinates)}<br />{stempelWaktu(d.capturedAt)}</td>
-              <td>{d.watermarkedPhotoDataUrl ? <img src={d.watermarkedPhotoDataUrl} alt={d.defectCode} style={{ width: '70mm', display: 'block' }} /> : 'Tanpa foto'}</td>
+              <td>
+                <PhotoThumbnail
+                  photoId={d.watermarkedPhotoId}
+                  fallbackDataUrl={d.watermarkedPhotoDataUrl}
+                  alt={d.defectCode}
+                  style={{ width: '70mm', display: 'block' }}
+                  disableLink
+                />
+              </td>
               <td><b>{d.defectCode} — {d.defectTitle}</b><br />{d.technicalFinding}<br /><i>Sumber klasifikasi: {d.analysisSource === 'GEMINI_VISION' ? 'Gemini Vision (diverifikasi pemeriksa)' : 'Pustaka preset PSDA'}</i></td>
               <td className="text-center"><b>{SEVERITY_LABEL[d.severity].toUpperCase()}</b></td>
               <td>{d.repairInstruction}</td>
@@ -301,7 +310,13 @@ function LampiranDefect({ p }: { p: PHOProject }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4mm' }}>
             {docs.map(({ d, s }) => (
               <figure key={d.id} className="avoid" style={{ border: '0.75pt solid #000', padding: '2mm', margin: 0, fontSize: '7.5pt', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-                <img src={d.watermarkedPhotoDataUrl} alt={d.defectCode} style={{ width: '100%', display: 'block' }} />
+                <PhotoThumbnail
+                  photoId={d.watermarkedPhotoId}
+                  fallbackDataUrl={d.watermarkedPhotoDataUrl}
+                  alt={d.defectCode}
+                  style={{ width: '100%', display: 'block' }}
+                  disableLink
+                />
                 <figcaption><b>{s.staCode}</b> · {POSITION_LABEL[d.positionSide]} · {d.technicalFinding}</figcaption>
               </figure>
             ))}

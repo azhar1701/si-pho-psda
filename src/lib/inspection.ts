@@ -10,10 +10,13 @@ export const dimensionSummary = (seg: InspectionSegment) => {
   return `RERATA AKTUAL/MC-100: ${parts.join(' · ')} | A ${fmt(seg.actualCrossSectionAreaM2, 3)}/${fmt(seg.mc100CrossSectionAreaM2, 3)} m² | V ${fmt(seg.actualVolumeM3, 2)}/${fmt(seg.mc100VolumeM3, 2)} m³`;
 };
 
-export const gpsText = (g: DefectItem['gpsCoordinates']) =>
-  g.latitude !== null && g.longitude !== null
-    ? `${g.latitude.toFixed(6)}, ${g.longitude.toFixed(6)} ± ${g.accuracyMeter !== null ? Math.round(g.accuracyMeter) : '-'} m`
-    : 'GPS tidak tersedia';
+export const gpsText = (g: DefectItem['gpsCoordinates']) => {
+  if (g.latitude === null || g.longitude === null) return 'GPS tidak tersedia';
+  const latStr = `${Math.abs(g.latitude).toFixed(6)}° ${g.latitude < 0 ? 'LS' : 'LU'}`;
+  const lngStr = `${Math.abs(g.longitude).toFixed(6)}° ${g.longitude < 0 ? 'BB' : 'BT'}`;
+  const accStr = g.accuracyMeter !== null ? ` ± ${Math.round(g.accuracyMeter)} m` : '';
+  return `${latStr}, ${lngStr}${accStr}`;
+};
 
 export const buildWatermarkInfo = (
   p: PHOProject,

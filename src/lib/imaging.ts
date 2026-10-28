@@ -1,5 +1,8 @@
 export const MAX_PHOTO_WIDTH = 1280;
 export const JPEG_QUALITY = 0.82;
+export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // Batas wajar 15 MB untuk foto lapangan
+
+export const validateFileSize = (f: File, maxBytes = MAX_UPLOAD_BYTES): boolean => f.size <= maxBytes;
 
 export const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -29,6 +32,9 @@ export const fileToDataUrl = (f: File) =>
 
 /** Normalisasi berkas unggahan menjadi JPEG terkompresi (≤1280 px, kualitas 0,82) */
 export const normalizeUpload = async (f: File) => {
+  if (!validateFileSize(f)) {
+    throw new Error(`Ukuran berkas (${(f.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimum 15 MB.`);
+  }
   const img = await loadImage(await fileToDataUrl(f));
   return sourceToCanvas(img, img.naturalWidth, img.naturalHeight).toDataURL('image/jpeg', JPEG_QUALITY);
 };

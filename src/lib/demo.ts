@@ -5,11 +5,15 @@ import { uid } from './format';
 import { burnWatermark } from './imaging';
 import { buildWatermarkInfo } from './inspection';
 import { DEFECT_PRESETS } from './templates';
+import { savePhoto } from './storage';
 
 const TOL = 0.01;
 
 /** Citra sintetis bidang struktur untuk proyek contoh (tanpa aset eksternal) */
 const syntheticPhoto = (kind: 'pasangan' | 'pintu' | 'bronjong' | 'galian', seed: number) => {
+  if (typeof document === 'undefined') {
+    throw new Error('Canvas API tidak tersedia di lingkungan SSR.');
+  }
   const c = document.createElement('canvas');
   c.width = 1280;
   c.height = 960;
@@ -60,8 +64,10 @@ const syntheticPhoto = (kind: 'pasangan' | 'pintu' | 'bronjong' | 'galian', seed
 const mkDefect = async (p: PHOProject, seg: InspectionSegment, code: string, kind: Parameters<typeof syntheticPhoto>[0], seed: number, overrides: Partial<DefectItem> = {}) => {
   const pr = DEFECT_PRESETS.find((x) => x.code === code)!;
   const capturedAt = new Date(`${p.inspectionTeam.inspectionDate}T09:${String(10 + seed).padStart(2, '0')}:00`).toISOString();
+  const itemId = uid('dft');
+  const photoId = `pho_${itemId}`;
   const d: DefectItem = {
-    id: uid('dft'),
+    id: itemId,
     staId: seg.id,
     staCode: seg.staCode,
     entryType: code === 'DOK-00' ? 'DOKUMENTASI' : 'CACAT_MUTU',
@@ -75,11 +81,16 @@ const mkDefect = async (p: PHOProject, seg: InspectionSegment, code: string, kin
     analysisSource: 'MANUAL_PRESET',
     positionSide: seg.positionSide,
     gpsCoordinates: { latitude: -7.4561 - seed * 0.0011, longitude: 108.5712 + seed * 0.0009, accuracyMeter: 4 + seed },
-    watermarkedPhotoDataUrl: '',
+    watermarkedPhotoId: photoId,
     capturedAt,
     ...overrides,
   };
-  d.watermarkedPhotoDataUrl = await burnWatermark(syntheticPhoto(kind, seed * 977 + 13), buildWatermarkInfo(p, seg, d));
+  const watermarkedDataUrl = await burnWatermark(syntheticPhoto(kind, seed * 977 + 13), buildWatermarkInfo(p, seg, d));
+  try {
+    await savePhoto(photoId, watermarkedDataUrl);
+  } catch {
+    d.watermarkedPhotoDataUrl = watermarkedDataUrl;
+  }
   return d;
 };
 
