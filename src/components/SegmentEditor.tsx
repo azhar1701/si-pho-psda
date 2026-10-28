@@ -4,7 +4,7 @@ import type { ChecklistStatus, DimKey, DimensionSet, InspectionSegment, Measurem
 import type { Updater } from '../App';
 import { Badge, Btn, Card, NumField, SelectField, TextField, cx } from './ui';
 import { SeverityBadge, StatusBadge } from './StatusBadge';
-import { CATEGORIES, CATEGORY_ORDER, SUBTYPES, SEVERITY_LABEL } from '../lib/templates';
+import { CATEGORIES, CATEGORY_ORDER, SUBTYPES } from '../lib/templates';
 import { deviation, isDeficit, sampleArea } from '../lib/calc';
 import { fmt, fmtDim, stempelWaktu, uid } from '../lib/format';
 import { buildChecklist, defaultDims, newSample } from '../lib/factory';
@@ -39,6 +39,8 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
     message: '',
     onConfirm: () => {},
   });
+
+  const [photoFilter, setPhotoFilter] = useState<'ALL' | 'DOK' | 'DEFECT'>('ALL');
 
   const askConfirm = (opts: { title?: string; message: string; isDestructive?: boolean; onConfirm: () => void }) => {
     setConfirmState({ open: true, ...opts });
@@ -399,58 +401,135 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
       </Card>
 
       {/* Temuan */}
-      <Card
-        title={`Temuan Cacat Mutu & Dokumentasi (${seg.defects.length})`}
-        icon={<ImageIcon className="h-5 w-5" />}
-        right={
-          <Btn variant="primary" className="min-h-[44px]" onClick={openCamera}>
-            <Camera className="h-5 w-5" />
-            Kamera
-          </Btn>
-        }
-      >
-        {seg.defects.length === 0 && <p className="text-sm font-semibold text-slate-500">Belum ada foto temuan pada segmen ini.</p>}
-        <ul className="space-y-3">
-          {seg.defects.map((d) => (
-            <li key={d.id} className="flex gap-3 rounded-lg border border-slate-200 p-2">
-              <PhotoThumbnail
-                photoId={d.watermarkedPhotoId}
-                fallbackDataUrl={d.watermarkedPhotoDataUrl}
-                alt={d.defectCode}
-                className="h-24 w-32 shrink-0 rounded object-cover"
-              />
-              <div className="min-w-0 flex-1 text-sm">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="font-mono font-extrabold">{d.defectCode}</span>
-                  {d.entryType === 'CACAT_MUTU' ? <SeverityBadge s={d.severity} /> : <Badge tone="green">Dokumentasi</Badge>}
-                  <Badge tone="slate">{d.analysisSource === 'GEMINI_VISION' ? 'Gemini Vision' : 'Preset Lokal'}</Badge>
-                </div>
-                <div className="font-bold">{d.defectTitle}</div>
-                <div className="text-xs font-medium text-slate-600">
-                  {d.affectedVolumeOrArea} · {d.entryType === 'CACAT_MUTU' ? `${d.dueDays} hari · ${SEVERITY_LABEL[d.severity]}` : ''} ·{' '}
-                  {gpsText(d.gpsCoordinates)} · {stempelWaktu(d.capturedAt)}
-                </div>
+      {/* Temuan Cacat Mutu & Dokumentasi */}
+      {(() => {
+        const docPhotos = seg.defects.filter((d) => d.entryType === 'DOKUMENTASI');
+        const defectPhotos = seg.defects.filter((d) => d.entryType === 'CACAT_MUTU');
+        const displayedPhotos =
+          photoFilter === 'DOK' ? docPhotos : photoFilter === 'DEFECT' ? defectPhotos : seg.defects;
+
+        return (
+          <Card
+            title={`Temuan Cacat Mutu & Dokumentasi (${seg.defects.length})`}
+            icon={<ImageIcon className="h-5 w-5 text-amber-500" />}
+            right={
+              <Btn variant="primary" className="min-h-[44px]" onClick={openCamera}>
+                <Camera className="h-5 w-5" />
+                Buka Kamera
+              </Btn>
+            }
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPhotoFilter('ALL')}
+                  className={cx(
+                    'rounded-lg px-2.5 py-1 text-xs font-bold transition',
+                    photoFilter === 'ALL'
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                  )}
+                >
+                  Semua ({seg.defects.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoFilter('DOK')}
+                  className={cx(
+                    'rounded-lg px-2.5 py-1 text-xs font-bold transition',
+                    photoFilter === 'DOK'
+                      ? 'bg-sky-600 text-white shadow-2xs'
+                      : 'bg-sky-50 text-sky-700 hover:bg-sky-100',
+                  )}
+                >
+                  Dokumentasi Fisik ({docPhotos.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoFilter('DEFECT')}
+                  className={cx(
+                    'rounded-lg px-2.5 py-1 text-xs font-bold transition',
+                    photoFilter === 'DEFECT'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-2xs'
+                      : 'bg-amber-50 text-amber-800 hover:bg-amber-100',
+                  )}
+                >
+                  Cacat Mutu ({defectPhotos.length})
+                </button>
               </div>
-              <button
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-red-700 hover:bg-red-50"
-                aria-label="Hapus temuan"
-                onClick={() => {
-                  askConfirm({
-                    title: 'Hapus Temuan',
-                    message: `Hapus temuan ${d.defectCode} (${d.defectTitle})?`,
-                    isDestructive: true,
-                    onConfirm: () => {
-                      set((s) => ({ ...s, defects: s.defects.filter((x) => x.id !== d.id) }));
-                    },
-                  });
-                }}
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </Card>
+              <div className="text-[11px] text-slate-500">
+                Foto otomatis terbakar watermark legal dan tercetak pada Lampiran II A4.
+              </div>
+            </div>
+
+            {displayedPhotos.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-8 text-center text-xs font-medium text-slate-500">
+                {photoFilter === 'ALL'
+                  ? 'Belum ada foto dokumentasi atau temuan pada segmen ini. Tekan tombol "Buka Kamera" untuk mengambil foto.'
+                  : photoFilter === 'DOK'
+                  ? 'Belum ada foto dokumentasi fisik (Hulu/Hilir/Penampang).'
+                  : 'Tidak ada temuan cacat mutu pada segmen ini.'}
+              </div>
+            ) : (
+              <ul className="space-y-3 pt-1">
+                {displayedPhotos.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex flex-col sm:flex-row gap-3 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-slate-300"
+                  >
+                    <PhotoThumbnail
+                      photoId={d.watermarkedPhotoId}
+                      fallbackDataUrl={d.watermarkedPhotoDataUrl}
+                      alt={d.defectCode}
+                      className="h-28 w-full sm:w-36 shrink-0 rounded-lg object-cover border border-slate-100 bg-slate-100"
+                    />
+                    <div className="min-w-0 flex-1 text-sm space-y-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono font-extrabold text-slate-900">{d.defectCode}</span>
+                        {d.entryType === 'CACAT_MUTU' ? (
+                          <SeverityBadge s={d.severity} />
+                        ) : (
+                          <Badge tone="green">Dokumentasi Fisik</Badge>
+                        )}
+                        <Badge tone="slate">{d.analysisSource === 'GEMINI_VISION' ? 'Gemini Vision' : 'Preset Lapangan'}</Badge>
+                      </div>
+                      <div className="font-bold text-slate-900">{d.defectTitle}</div>
+                      <div className="text-xs text-slate-600 line-clamp-2">{d.technicalFinding}</div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[11px] font-medium text-slate-500">
+                        {d.entryType === 'CACAT_MUTU' && (
+                          <span className="font-semibold text-amber-700">Batas: {d.dueDays} hari</span>
+                        )}
+                        <span>{gpsText(d.gpsCoordinates)}</span>
+                        <span>{stempelWaktu(d.capturedAt)}</span>
+                      </div>
+                    </div>
+                    <div className="flex sm:flex-col items-center justify-end sm:justify-start">
+                      <button
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                        aria-label="Hapus foto"
+                        title="Hapus Foto"
+                        onClick={() => {
+                          askConfirm({
+                            title: 'Hapus Foto Temuan',
+                            message: `Hapus foto ${d.defectCode} (${d.defectTitle})?`,
+                            isDestructive: true,
+                            onConfirm: () => {
+                              set((s) => ({ ...s, defects: s.defects.filter((x) => x.id !== d.id) }));
+                            },
+                          });
+                        }}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        );
+      })()}
 
       <Card title="Catatan Pemeriksa" icon={<NotebookPen className="h-5 w-5" />}>
         <TextField

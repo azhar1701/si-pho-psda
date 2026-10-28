@@ -1,5 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Aperture, Camera, CameraOff, Crosshair, Grid3x3, Loader2, MapPin, ScanLine, Sparkles, Upload, Save, RotateCcw, Library } from 'lucide-react';
+import {
+  Aperture,
+  Camera,
+  CameraOff,
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  Grid3x3,
+  Layers,
+  Library,
+  Loader2,
+  MapPin,
+  RotateCcw,
+  Save,
+  ScanLine,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+  Zap,
+} from 'lucide-react';
 import type { DefectItem, PHOProject, PositionSide, Severity } from '../types';
 import type { Updater } from '../App';
 import { Badge, Btn, Card, NumField, SelectField, TextField, cx } from './ui';
@@ -7,11 +27,78 @@ import { CATEGORIES, POSITION_LABEL, SUBTYPES, presetsFor } from '../lib/templat
 import { applyCrackFilter, burnWatermark, filterDataUrl, normalizeUpload, sourceToCanvas, JPEG_QUALITY } from '../lib/imaging';
 import { analyzeDefect, GEMINI_MODEL, resolveApiKey } from '../lib/gemini';
 import { buildWatermarkInfo, dimensionSummary, gpsText } from '../lib/inspection';
-import { uid } from '../lib/format';
+import { stempelWaktu, uid } from '../lib/format';
 import { savePhoto } from '../lib/storage';
 import { SIDE_OPTIONS } from './SegmentsView';
 import { SeverityBadge } from './StatusBadge';
 import { PhotoThumbnail } from './PhotoThumbnail';
+import { ConfirmDialog } from './ConfirmDialog';
+
+export type RapidTag = 'HULU' | 'HILIR' | 'PENAMPANG' | 'CACAT_MUTU';
+
+export interface RapidTagDef {
+  tag: RapidTag;
+  label: string;
+  shortLabel: string;
+  code: string;
+  title: string;
+  entryType: 'DOKUMENTASI' | 'CACAT_MUTU';
+  finding: string;
+  severity: Severity;
+  colorClass: string;
+  activeClass: string;
+}
+
+export const RAPID_TAGS: RapidTagDef[] = [
+  {
+    tag: 'HULU',
+    label: 'Tampak Hulu',
+    shortLabel: 'Hulu',
+    code: 'DOK-HULU',
+    title: 'Dokumentasi Fisik Tampak Hulu',
+    entryType: 'DOKUMENTASI',
+    finding: 'Dokumentasi visual fisik segmen dari arah hulu (upstream). Kondisi aliran dan pasangan terpasang.',
+    severity: 'MINOR',
+    colorClass: 'border-indigo-400/50 bg-indigo-500/20 text-indigo-200',
+    activeClass: 'border-indigo-400 bg-indigo-500 text-white shadow-md shadow-indigo-500/30',
+  },
+  {
+    tag: 'HILIR',
+    label: 'Tampak Hilir',
+    shortLabel: 'Hilir',
+    code: 'DOK-HILIR',
+    title: 'Dokumentasi Fisik Tampak Hilir',
+    entryType: 'DOKUMENTASI',
+    finding: 'Dokumentasi visual fisik segmen dari arah hilir (downstream). Kondisi aliran dan kelurusan tanggul.',
+    severity: 'MINOR',
+    colorClass: 'border-sky-400/50 bg-sky-500/20 text-sky-200',
+    activeClass: 'border-sky-400 bg-sky-500 text-white shadow-md shadow-sky-500/30',
+  },
+  {
+    tag: 'PENAMPANG',
+    label: 'Penampang Basah',
+    shortLabel: 'Penampang',
+    code: 'DOK-PENAMPANG',
+    title: 'Dokumentasi Dimensi Penampang',
+    entryType: 'DOKUMENTASI',
+    finding: 'Dokumentasi mistar / pita ukur pada penampang melintang aktual saluran saat opname fisik.',
+    severity: 'MINOR',
+    colorClass: 'border-emerald-400/50 bg-emerald-500/20 text-emerald-200',
+    activeClass: 'border-emerald-400 bg-emerald-500 text-white shadow-md shadow-emerald-500/30',
+  },
+  {
+    tag: 'CACAT_MUTU',
+    label: 'Cacat Mutu',
+    shortLabel: 'Cacat Mutu',
+    code: 'DEF-MUTU',
+    title: 'Temuan Cacat Mutu Lapangan',
+    entryType: 'CACAT_MUTU',
+    finding: 'Terindikasi ketidaksesuaian mutu fisik (retak/keropos/siar rusak). Perlu verifikasi rincian perbaikan.',
+    severity: 'MAYOR',
+    colorClass: 'border-amber-400/50 bg-amber-500/20 text-amber-200',
+    activeClass: 'border-amber-400 bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/30',
+  },
+];
 
 interface Props {
   project: PHOProject;
@@ -48,8 +135,32 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
   const [showFilteredPreview, setShowFilteredPreview] = useState(false);
   const [busy, setBusy] = useState<'' | 'ai' | 'save'>('');
   const [aiNote, setAiNote] = useState('');
+
+  // Continuous burst & instant tagging state
+  const [activeTag, setActiveTag] = useState<RapidTag>('HULU');
+  const [burstMode, setBurstMode] = useState<boolean>(true);
+  const [flash, setFlash] = useState<boolean>(false);
+  const [previewItem, setPreviewItem] = useState<DefectItem | null>(null);
+  const [savingCount, setSavingCount] = useState<number>(0);
+
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title?: string;
+    message: string;
+    isDestructive?: boolean;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    message: '',
+    onConfirm: () => {},
+  });
+
   const sensRef = useRef(sens);
   sensRef.current = sens;
+
+  const currentIndex = project.segments.findIndex((s) => s.id === seg?.id);
+  const prevSeg = currentIndex > 0 ? project.segments[currentIndex - 1] : null;
+  const nextSeg = currentIndex >= 0 && currentIndex < project.segments.length - 1 ? project.segments[currentIndex + 1] : null;
 
   useEffect(() => {
     if (seg) setSide(seg.positionSide);
@@ -147,7 +258,6 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
 
   const startDraft = (rawPhoto: string) => {
     if (!seg) return;
-    // M-09: Matikan kamera saat draft tersedia untuk menghemat baterai & memori
     stopCam();
     const p = presets.find((x) => x.code !== 'DOK-00') ?? presets[0];
     setDraft({
@@ -170,11 +280,80 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
     setAiNote('');
   };
 
-  const capture = () => {
+  const captureBurst = async (customTag?: RapidTagDef) => {
     const v = videoRef.current;
-    if (!v || !v.videoWidth) return;
+    if (!v || !v.videoWidth || !seg) return;
+
+    const tag = customTag ?? RAPID_TAGS.find((t) => t.tag === activeTag) ?? RAPID_TAGS[0];
+
+    // Haptic feedback
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(50);
+      } catch {
+        /* noop */
+      }
+    }
+
+    // Flash visual mikro
+    setFlash(true);
+    setTimeout(() => setFlash(false), 90);
+
     const c = sourceToCanvas(v, v.videoWidth, v.videoHeight);
-    startDraft(c.toDataURL('image/jpeg', JPEG_QUALITY));
+    const rawPhoto = c.toDataURL('image/jpeg', JPEG_QUALITY);
+
+    // Bila dalam Mode Detail: alihkan ke form review
+    if (!burstMode) {
+      startDraft(rawPhoto);
+      return;
+    }
+
+    // Mode Pemotretan Cepat Beruntun: bakar watermark & simpan luring di background tanpa menjeda kamera
+    const itemId = uid('dft');
+    const photoId = `pho_${itemId}`;
+    const capturedAt = new Date().toISOString();
+
+    const item: DefectItem = {
+      id: itemId,
+      staId: seg.id,
+      staCode: seg.staCode,
+      entryType: tag.entryType,
+      defectCode: tag.code,
+      defectTitle: tag.title,
+      severity: tag.severity,
+      technicalFinding: tag.finding,
+      repairInstruction: tag.entryType === 'CACAT_MUTU' ? 'Lakukan perbaikan dan perapian sesuai spesifikasi teknis.' : '-',
+      affectedVolumeOrArea: '-',
+      dueDays: tag.entryType === 'CACAT_MUTU' ? 14 : 0,
+      analysisSource: 'MANUAL_PRESET',
+      positionSide: side,
+      gpsCoordinates: { ...gps },
+      watermarkedPhotoId: photoId,
+      capturedAt,
+    };
+
+    setSavingCount((n) => n + 1);
+
+    try {
+      const projected = {
+        ...seg,
+        evaluationStatus: tag.entryType === 'CACAT_MUTU' ? ('PERLU_PERBAIKAN' as const) : seg.evaluationStatus,
+      };
+
+      const watermarkedDataUrl = await burnWatermark(rawPhoto, buildWatermarkInfo(project, projected, item));
+      await savePhoto(photoId, watermarkedDataUrl);
+
+      update((p) => ({
+        ...p,
+        segments: p.segments.map((s) => (s.id === seg.id ? { ...s, defects: [...s.defects, item] } : s)),
+      }));
+
+      notify(`Foto [${tag.label}] tersimpan di ${seg.staCode}.`);
+    } catch (e) {
+      notify('Gagal menyimpan foto: ' + (e as Error).message, 'err');
+    } finally {
+      setSavingCount((n) => Math.max(0, n - 1));
+    }
   };
 
   const applyPreset = (code: string) => {
@@ -198,7 +377,6 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
     if (!draft || !seg) return;
     setBusy('ai');
     setAiNote('');
-    // M-07: AbortController untuk request AI yang dapat dibatalkan
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
@@ -242,13 +420,9 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
         evaluationStatus: draft.entryType === 'CACAT_MUTU' ? ('PERLU_PERBAIKAN' as const) : seg.evaluationStatus,
       };
 
-      // Bakar watermark pada citra asli
       const watermarkedDataUrl = await burnWatermark(rawPhoto, buildWatermarkInfo(project, projected, item));
-
-      // Simpan foto ber-watermark ke IndexedDB Blob store terpisah (K-05)
       await savePhoto(photoId, watermarkedDataUrl);
 
-      // Simpan metadata item ke JSON proyek (tanpa base64 berat)
       update((p) => ({
         ...p,
         segments: p.segments.map((s) => (s.id === seg.id ? { ...s, defects: [...s.defects, item] } : s)),
@@ -277,17 +451,45 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
       <div className="space-y-3">
+        {/* Header Pilihan STA & Navigasi Cepat */}
         <Card>
           <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField
-              label="Segmen STA / Unit Bangunan"
-              value={seg.id}
-              onChange={(v) => {
-                setSelectedId(v);
-                setDraft(null);
-              }}
-              options={project.segments.map((s) => ({ value: s.id, label: `${s.staCode} — ${SUBTYPES[s.subType].shortLabel}` }))}
-            />
+            <div>
+              <label className="mb-1 block text-xs font-bold text-slate-700">Segmen STA Aktif</label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={!prevSeg}
+                  onClick={() => prevSeg && setSelectedId(prevSeg.id)}
+                  className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-white active:scale-95 disabled:opacity-35 disabled:hover:bg-slate-50"
+                  title={prevSeg ? `STA Sebelumnya: ${prevSeg.staCode}` : 'Awal Segmen'}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">{prevSeg?.staCode ?? 'Awal'}</span>
+                </button>
+                <div className="flex-1 min-w-0">
+                  <SelectField
+                    label="Pilih Ruas / STA"
+                    value={seg.id}
+                    onChange={(v) => {
+                      setSelectedId(v);
+                      setDraft(null);
+                    }}
+                    options={project.segments.map((s) => ({ value: s.id, label: `${s.staCode} — ${SUBTYPES[s.subType].shortLabel}` }))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={!nextSeg}
+                  onClick={() => nextSeg && setSelectedId(nextSeg.id)}
+                  className="flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-white active:scale-95 disabled:opacity-35 disabled:hover:bg-slate-50"
+                  title={nextSeg ? `STA Berikutnya: ${nextSeg.staCode}` : 'Akhir Segmen'}
+                >
+                  <span className="hidden sm:inline">{nextSeg?.staCode ?? 'Akhir'}</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
             <SelectField
               label="Posisi Pengambilan"
               value={side}
@@ -326,6 +528,7 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
           </div>
         </Card>
 
+        {/* Viewfinder Kamera */}
         <div className={cx('overflow-hidden rounded-2xl border-2 border-slate-900 bg-slate-950 shadow-xl', draft && 'hidden')}>
           <div className="relative aspect-[4/3] sm:aspect-video w-full bg-black">
             <video
@@ -336,6 +539,12 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
             />
             {edge && camOn && <canvas ref={filterCanvasRef} className="absolute inset-0 h-full w-full object-cover" />}
             {grid && camOn && <GridOverlay />}
+
+            {/* Kilat Shutter Flash Mikro */}
+            {flash && (
+              <div className="pointer-events-none absolute inset-0 z-30 bg-white/80 transition-opacity duration-75 animate-out fade-out" />
+            )}
+
             {camOn && level && (
               <div
                 className={cx(
@@ -348,7 +557,7 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
             )}
             {camOn && edge && (
               <div className="absolute right-3 top-3 rounded-lg bg-red-600/90 px-2.5 py-1 text-xs font-black text-white shadow-md backdrop-blur-md">
-                FILTER RETAK & RONGGA
+                FILTER RETAK &amp; RONGGA
               </div>
             )}
             {!camOn && (
@@ -356,10 +565,60 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900/80 border border-slate-800 text-slate-400">
                   <CameraOff className="h-8 w-8" />
                 </div>
-                <p className="text-sm font-bold text-slate-300 max-w-xs">{camErr || 'Kamera belakang belum aktif. Tekan AKTIFKAN untuk memulai pemotretan.'}</p>
+                <p className="text-sm font-bold text-slate-300 max-w-xs">{camErr || 'Kamera belakang belum aktif. Tekan AKTIFKAN untuk memulai pemotretan cepat.'}</p>
               </div>
             )}
           </div>
+
+          {/* Pita Tag Cepat Sekali Sentuh */}
+          {camOn && (
+            <div className="border-t border-slate-800 bg-slate-950/95 px-2.5 pt-2 pb-1.5 backdrop-blur">
+              <div className="mb-1.5 flex items-center justify-between text-[11px]">
+                <span className="font-extrabold tracking-wider text-slate-400 uppercase flex items-center gap-1">
+                  <Zap className="h-3 w-3 text-amber-400" />
+                  Pita Tag Instan:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBurstMode((b) => !b)}
+                  className={cx(
+                    'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-black uppercase transition',
+                    burstMode ? 'bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/40' : 'bg-slate-800 text-slate-400',
+                  )}
+                >
+                  <Layers className="h-3 w-3" />
+                  {burstMode ? 'Mode Beruntun (Cepat)' : 'Mode Detail & AI'}
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {RAPID_TAGS.map((t) => {
+                  const active = activeTag === t.tag;
+                  return (
+                    <button
+                      key={t.tag}
+                      type="button"
+                      onClick={() => {
+                        setActiveTag(t.tag);
+                        if (camOn && burstMode) {
+                          captureBurst(t);
+                        }
+                      }}
+                      className={cx(
+                        'flex h-11 flex-col items-center justify-center rounded-xl border text-[10px] font-black uppercase transition active:scale-95',
+                        active ? t.activeClass : t.colorClass,
+                      )}
+                      title={`Pilih atau sentuh untuk langsung memotret ${t.label}`}
+                    >
+                      <span>{t.shortLabel}</span>
+                      <span className="text-[8px] opacity-75">{t.code}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Kontrol Shutter & Kamera Bawah */}
           <div className="grid grid-cols-4 gap-1.5 bg-slate-950/95 border-t border-slate-800 p-2 sm:p-2.5 backdrop-blur">
             <button
               onClick={() => setGrid((g) => !g)}
@@ -387,7 +646,7 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
             </button>
             {camOn ? (
               <button
-                onClick={capture}
+                onClick={() => captureBurst()}
                 className="flex h-14 flex-col items-center justify-center rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-[11px] font-black text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.35)] hover:from-amber-300 hover:to-amber-400 active:scale-95 transition"
               >
                 <Aperture className="h-6 w-6 mb-0.5 animate-pulse" />
@@ -449,6 +708,58 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
               }
             }}
           />
+        </div>
+
+        {/* Laci Galeri Bawah (Filmstrip Tray) */}
+        <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/95 p-3 shadow-lg backdrop-blur">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 font-bold text-slate-200">
+              <Camera className="h-4 w-4 text-amber-400" />
+              <span>Galeri Foto STA {seg.staCode}</span>
+              <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-black text-amber-400 ring-1 ring-slate-700">
+                {seg.defects.length} Foto
+              </span>
+            </div>
+            {savingCount > 0 && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 animate-pulse">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Menyimpan {savingCount} foto…
+              </span>
+            )}
+          </div>
+
+          {seg.defects.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950/50 py-3.5 text-center text-xs text-slate-400">
+              Belum ada foto pada STA ini. Ketuk salah satu tombol tag cepat di atas untuk langsung membidik &amp; menyimpan.
+            </div>
+          ) : (
+            <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-thin">
+              {seg.defects.slice().reverse().map((d) => (
+                <div
+                  key={d.id}
+                  onClick={() => setPreviewItem(d)}
+                  className="group relative flex-shrink-0 cursor-pointer overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950 transition hover:border-amber-400 hover:ring-2 hover:ring-amber-400/20 active:scale-95"
+                  style={{ width: '96px', height: '72px' }}
+                >
+                  <PhotoThumbnail
+                    photoId={d.watermarkedPhotoId}
+                    fallbackDataUrl={d.watermarkedPhotoDataUrl}
+                    alt={d.defectCode}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent px-1.5 py-0.5 text-[9px] font-bold text-slate-200 truncate">
+                    {d.defectCode}
+                  </div>
+                  <div
+                    className={cx(
+                      'absolute top-1 right-1 h-2.5 w-2.5 rounded-full ring-1 ring-slate-950',
+                      d.entryType === 'CACAT_MUTU' ? 'bg-amber-400' : 'bg-emerald-400',
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {draft && (
@@ -624,6 +935,91 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
           </div>
         </Card>
       </div>
+
+      {/* Modal Pratinjau Cepat Foto & Hapus */}
+      {previewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 text-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-black text-amber-400">{previewItem.defectCode}</span>
+                <span
+                  className={cx(
+                    'rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase',
+                    previewItem.entryType === 'CACAT_MUTU'
+                      ? 'bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/30'
+                      : 'bg-emerald-400/20 text-emerald-300 ring-1 ring-emerald-400/30',
+                  )}
+                >
+                  {previewItem.entryType === 'CACAT_MUTU' ? 'Cacat Mutu' : 'Dokumentasi'}
+                </span>
+              </div>
+              <button
+                onClick={() => setPreviewItem(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <PhotoThumbnail
+                photoId={previewItem.watermarkedPhotoId}
+                fallbackDataUrl={previewItem.watermarkedPhotoDataUrl}
+                alt={previewItem.defectCode}
+                className="w-full rounded-xl border border-slate-700 object-contain max-h-[50vh] bg-black"
+              />
+              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-1.5 text-xs">
+                <div className="font-bold text-slate-200">{previewItem.defectTitle}</div>
+                <div className="text-slate-400">{previewItem.technicalFinding}</div>
+                <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-400">
+                  <span className="flex items-center gap-1 text-slate-300">
+                    <MapPin className="h-3.5 w-3.5 text-emerald-400" />
+                    {gpsText(previewItem.gpsCoordinates)}
+                  </span>
+                  <span>{stempelWaktu(previewItem.capturedAt)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950/80 px-4 py-3">
+              <Btn
+                variant="ghost"
+                className="text-xs text-rose-400 hover:bg-rose-950/50 hover:text-rose-200"
+                onClick={() => {
+                  setConfirmState({
+                    open: true,
+                    title: 'Hapus Foto',
+                    message: `Hapus foto ${previewItem.defectCode} (${previewItem.defectTitle})?`,
+                    isDestructive: true,
+                    onConfirm: () => {
+                      update((p) => ({
+                        ...p,
+                        segments: p.segments.map((s) =>
+                          s.id === seg.id ? { ...s, defects: s.defects.filter((x) => x.id !== previewItem.id) } : s,
+                        ),
+                      }));
+                      setPreviewItem(null);
+                      notify('Foto berhasil dihapus.');
+                    },
+                  });
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Hapus Foto</span>
+              </Btn>
+              <Btn onClick={() => setPreviewItem(null)}>Tutup</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDestructive={confirmState.isDestructive}
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState((s) => ({ ...s, open: false }))}
+      />
     </div>
   );
 }

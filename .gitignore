@@ -8,3 +8,10 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# AI Agent Skills & Tooling
+.agents/
+.github/skills/
+.github/agents/
+.github/hooks/
+skills/
