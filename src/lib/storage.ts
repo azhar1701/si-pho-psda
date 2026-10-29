@@ -4,6 +4,7 @@ import { recomputeProject } from './calc';
 import { blankProject } from './factory';
 import { validateProjectSchema } from './schema';
 
+const LS_KEY_V3 = 'sipho-psda:project:v3';
 const LS_KEY_V2 = 'sipho-psda:project:v2';
 const LS_KEY_V1 = 'sipho-psda:project:v1';
 const LS_MODE = 'sipho-psda:storage-mode';
@@ -218,11 +219,15 @@ export const normalizeProject = (raw: unknown): PHOProject => {
   const merged = {
     ...base,
     ...r,
-    schemaVersion: r.schemaVersion ?? CURRENT_SCHEMA_VERSION,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     agencyHeader: { ...base.agencyHeader, ...(r.agencyHeader ?? {}) },
     contractInfo: { ...base.contractInfo, ...(r.contractInfo ?? {}) },
     inspectionTeam: { ...base.inspectionTeam, ...(r.inspectionTeam ?? {}) },
     conclusionMode: r.conclusionMode ?? 'OTOMATIS',
+    timeline: { ...base.timeline, ...(r.timeline ?? {}) },
+    progressPeriods: r.progressPeriods ?? base.progressPeriods ?? [],
+    ncrItems: r.ncrItems ?? base.ncrItems ?? [],
+    maintenanceRecords: r.maintenanceRecords ?? base.maintenanceRecords ?? [],
     segments: r.segments.map((s) => ({
       ...s,
       samples: (s.samples ?? []).map((x) => ({
@@ -250,13 +255,15 @@ export const normalizeProject = (raw: unknown): PHOProject => {
 export const loadProject = async (): Promise<PHOProject | null> => {
   try {
     const mode = (safeStorage.getItem(localStorage, LS_MODE) as StorageMode) || 'localStorage';
-    let txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V2) : safeStorage.getItem(localStorage, LS_KEY_V2);
-    
-    // Fallback load from v1 if v2 does not exist
+    // Try V3, then V2, then V1
+    let txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V3) : safeStorage.getItem(localStorage, LS_KEY_V3);
+    if (!txt) {
+      txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V2) : safeStorage.getItem(localStorage, LS_KEY_V2);
+    }
     if (!txt) {
       txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V1) : safeStorage.getItem(localStorage, LS_KEY_V1);
     }
-    
+
     if (!txt) return null;
     const project = normalizeProject(JSON.parse(txt));
     // Asynchronously trigger photo migration if needed
@@ -272,13 +279,13 @@ export const loadProject = async (): Promise<PHOProject | null> => {
 export const saveProject = async (p: PHOProject): Promise<StorageMode> => {
   const txt = JSON.stringify(p);
   try {
-    safeStorage.setItem(localStorage, LS_KEY_V2, txt);
+    safeStorage.setItem(localStorage, LS_KEY_V3, txt);
     safeStorage.setItem(localStorage, LS_MODE, 'localStorage');
     return 'localStorage';
   } catch {
-    await idbPut(LS_KEY_V2, txt);
+    await idbPut(LS_KEY_V3, txt);
     try {
-      safeStorage.removeItem(localStorage, LS_KEY_V2);
+      safeStorage.removeItem(localStorage, LS_KEY_V3);
       safeStorage.setItem(localStorage, LS_MODE, 'indexedDB');
     } catch {
       /* abaikan */
@@ -298,23 +305,27 @@ export const getStoredApiKey = (): string => {
 
 export const setStoredApiKey = (k: string): void => {
   try {
-    if (k) safeStorage.setItem(sessionStorage, SS_APIKEY, k);
-    else safeStorage.removeItem(sessionStorage, SS_APIKEY);
+    safeStorage.setItem(sessionStorage, SS_APIKEY, k);
   } catch {
     /* abaikan */
   }
 };
 
-export const downloadBlob = (content: BlobPart, filename: string, type: string) => {
-  const blob = new Blob([content], { type });
+export const safeFileName = (s: string) =>
+  s
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 48) || 'proyek';
+
+export const downloadBlob = (content: string, filename: string, mime: string) => {
+  const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };
-
-export const safeFileName = (s: string) => s.replace(/[^\w\-]+/g, '_').replace(/_+/g, '_').slice(0, 60) || 'proyek';

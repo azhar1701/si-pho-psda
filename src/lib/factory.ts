@@ -1,10 +1,30 @@
-import type { GeometrySubType, InspectionSegment, MeasurementSample, PHOProject, PositionSide, VisualChecklistItem, DimensionSet, StructureCategory } from '../types';
+import type {
+  GeometrySubType,
+  InspectionSegment,
+  MeasurementSample,
+  PHOProject,
+  PositionSide,
+  VisualChecklistItem,
+  DimensionSet,
+  StructureCategory,
+  ProgressPeriod,
+  NCRItem,
+  MaintenanceRecord,
+  Milestone,
+} from '../types';
+import { CURRENT_SCHEMA_VERSION } from '../types';
 import { CATEGORIES, SUBTYPES } from './templates';
 import { todayISO, uid } from './format';
 import { recomputeSegment } from './calc';
 
 export const buildChecklist = (cat: StructureCategory): VisualChecklistItem[] =>
-  CATEGORIES[cat].checklist.map((c) => ({ id: uid('chk'), parameterName: c.parameterName, standardRef: c.standardRef, status: 'BELUM_DIPERIKSA', remarks: '' }));
+  CATEGORIES[cat].checklist.map((c) => ({
+    id: uid('chk'),
+    parameterName: c.parameterName,
+    standardRef: c.standardRef,
+    status: 'BELUM_DIPERIKSA',
+    remarks: '',
+  }));
 
 export const sampleLabelFor = (index: number, offset: number) => {
   const pos = index === 0 ? 'Pangkal STA' : 'Titik Uji';
@@ -70,19 +90,106 @@ export const newSegment = (opts: {
   return recomputeSegment(seg, opts.tol);
 };
 
+export const newProgressPeriod = (opts: {
+  periodNumber: number;
+  periodType?: 'MINGGUAN' | 'BULANAN';
+  label?: string;
+  startDate?: string;
+  endDate?: string;
+  plannedPhysicalPercent?: number;
+  actualPhysicalPercent?: number;
+}): ProgressPeriod => ({
+  id: uid('prd'),
+  periodNumber: opts.periodNumber,
+  periodType: opts.periodType ?? 'MINGGUAN',
+  label: opts.label ?? `Minggu ke-${String(opts.periodNumber).padStart(2, '0')}`,
+  startDate: opts.startDate ?? todayISO(),
+  endDate: opts.endDate ?? todayISO(),
+  plannedPhysicalPercent: opts.plannedPhysicalPercent ?? 0,
+  actualPhysicalPercent: opts.actualPhysicalPercent ?? 0,
+  plannedFinancialPercent: 0,
+  actualFinancialPercent: 0,
+  weatherSummary: 'Cerah Berawan',
+  workerCount: 15,
+  notes: '',
+  updatedAt: new Date().toISOString(),
+});
+
+export const newNCRItem = (opts?: Partial<NCRItem>): NCRItem => ({
+  id: uid('ncr'),
+  ncrNumber: opts?.ncrNumber ?? `NCR-${Date.now().toString().slice(-4)}`,
+  issuedDate: opts?.issuedDate ?? todayISO(),
+  issuedBy: opts?.issuedBy ?? '',
+  staReference: opts?.staReference ?? '',
+  severity: opts?.severity ?? 'MINOR',
+  findingDescription: opts?.findingDescription ?? '',
+  correctiveAction: opts?.correctiveAction ?? '',
+  targetClosureDate: opts?.targetClosureDate ?? todayISO(),
+  status: 'OPEN',
+  ...opts,
+});
+
+export const newMaintenanceRecord = (opts?: Partial<MaintenanceRecord>): MaintenanceRecord => ({
+  id: uid('mnt'),
+  visitDate: opts?.visitDate ?? todayISO(),
+  inspectorName: opts?.inspectorName ?? '',
+  actionTaken: opts?.actionTaken ?? '',
+  isResolved: false,
+  ...opts,
+});
+
+export const newMilestone = (label: string, plannedDate: string, targetPercent: number): Milestone => ({
+  id: uid('mls'),
+  label,
+  plannedDate,
+  targetPercent,
+  isCompleted: false,
+});
+
 export const blankProject = (): PHOProject => ({
   id: uid('prj'),
-  schemaVersion: 1,
+  schemaVersion: CURRENT_SCHEMA_VERSION,
   updatedAt: new Date().toISOString(),
   agencyHeader: { ministryOrProvince: '', departmentName: '', officeAddress: '' },
   contractInfo: {
-    packageName: '', contractNumber: '', contractDate: '', mc100Number: '', contractValueIdr: 0, fiscalYear: String(new Date().getFullYear()),
-    irrigationAreaOrRiverName: '', locationDistrict: '', contractorName: '', supervisingConsultantName: '', maintenancePeriodDays: 180, dimensionToleranceMeter: 0.01,
+    packageName: '',
+    contractNumber: '',
+    contractDate: '',
+    mc100Number: '',
+    contractValueIdr: 0,
+    fiscalYear: String(new Date().getFullYear()),
+    irrigationAreaOrRiverName: '',
+    locationDistrict: '',
+    contractorName: '',
+    supervisingConsultantName: '',
+    maintenancePeriodDays: 180,
+    dimensionToleranceMeter: 0.015,
   },
   inspectionTeam: {
-    baNumber: '', skNumber: '', inspectionDate: todayISO(), leadInspectorName: '', leadInspectorNip: '', technicalDirectorName: '', technicalDirectorNip: '',
-    contractorRepName: '', contractorRepTitle: 'Direktur', consultantRepName: '', consultantRepTitle: 'Team Leader',
+    baNumber: '',
+    skNumber: '',
+    inspectionDate: todayISO(),
+    leadInspectorName: '',
+    leadInspectorNip: '',
+    technicalDirectorName: '',
+    technicalDirectorNip: '',
+    contractorRepName: '',
+    contractorRepTitle: 'Direktur',
+    consultantRepName: '',
+    consultantRepTitle: 'Team Leader',
   },
   conclusionMode: 'OTOMATIS',
   segments: [],
+  timeline: {
+    spmkNumber: '',
+    spmkDate: '',
+    startDate: '',
+    endDate: '',
+    totalCalendarDays: 150,
+    fhoTargetDate: '',
+    milestones: [],
+  },
+  progressPeriods: [],
+  ncrItems: [],
+  maintenanceRecords: [],
 });

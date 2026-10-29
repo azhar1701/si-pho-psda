@@ -132,9 +132,78 @@ export const InspectionTeamSchema = z.object({
   consultantRepTitle: z.string().default(''),
 });
 
+export const MilestoneSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().default(''),
+  plannedDate: z.string().default(''),
+  actualDate: z.string().optional(),
+  targetPercent: z.number().default(0),
+  isCompleted: z.boolean().default(false),
+});
+
+export const ContractTimelineSchema = z.object({
+  spmkNumber: z.string().optional(),
+  spmkDate: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  totalCalendarDays: z.number().optional(),
+  fhoTargetDate: z.string().optional(),
+  milestones: z.array(MilestoneSchema).optional().default([]),
+});
+
+export const ProgressPeriodSchema = z.object({
+  id: z.string().min(1),
+  periodNumber: z.number().default(1),
+  periodType: z.enum(['MINGGUAN', 'BULANAN']).default('MINGGUAN'),
+  label: z.string().default(''),
+  startDate: z.string().default(''),
+  endDate: z.string().default(''),
+  plannedPhysicalPercent: z.number().default(0),
+  actualPhysicalPercent: z.number().default(0),
+  plannedFinancialPercent: z.number().optional(),
+  actualFinancialPercent: z.number().optional(),
+  weatherSummary: z.string().optional(),
+  workerCount: z.number().optional(),
+  notes: z.string().optional(),
+  recordedBy: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export const NCRItemSchema = z.object({
+  id: z.string().min(1),
+  ncrNumber: z.string().default(''),
+  issuedDate: z.string().default(''),
+  issuedBy: z.string().default(''),
+  staReference: z.string().optional(),
+  linkedSegmentId: z.string().optional(),
+  linkedDefectId: z.string().optional(),
+  severity: z.enum(['MINOR', 'MAYOR', 'KRITIS']).default('MINOR'),
+  findingDescription: z.string().default(''),
+  rootCause: z.string().optional(),
+  correctiveAction: z.string().default(''),
+  targetClosureDate: z.string().default(''),
+  actualClosureDate: z.string().optional(),
+  status: z.enum(['OPEN', 'UNDER_REVIEW', 'CLOSED']).default('OPEN'),
+  closureNotes: z.string().optional(),
+  verifiedBy: z.string().optional(),
+  photoId: z.string().optional(),
+});
+
+export const MaintenanceRecordSchema = z.object({
+  id: z.string().min(1),
+  visitDate: z.string().default(''),
+  inspectorName: z.string().default(''),
+  staReference: z.string().optional(),
+  defectReference: z.string().optional(),
+  actionTaken: z.string().default(''),
+  isResolved: z.boolean().default(false),
+  notes: z.string().optional(),
+  photoId: z.string().optional(),
+});
+
 export const PHOProjectSchema = z.object({
   id: z.string().min(1),
-  schemaVersion: z.number().default(2),
+  schemaVersion: z.number().default(3),
   updatedAt: z.string(),
   agencyHeader: AgencyHeaderSchema.default({
     ministryOrProvince: '',
@@ -170,6 +239,10 @@ export const PHOProjectSchema = z.object({
   }),
   conclusionMode: z.enum(['OTOMATIS', 'DAPAT_DITERIMA', 'DITERIMA_DENGAN_CATATAN', 'BELUM_DAPAT_DITERIMA']).default('OTOMATIS'),
   segments: z.array(InspectionSegmentSchema),
+  timeline: ContractTimelineSchema.optional().default({ milestones: [] }),
+  progressPeriods: z.array(ProgressPeriodSchema).optional().default([]),
+  ncrItems: z.array(NCRItemSchema).optional().default([]),
+  maintenanceRecords: z.array(MaintenanceRecordSchema).optional().default([]),
 });
 
 export function validateProjectSchema(raw: unknown): PHOProject {

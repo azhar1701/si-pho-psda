@@ -15,11 +15,11 @@ web
 
 ## Product Purpose
 
-SI-PHO PSDA adalah instrumen inspeksi lapangan *mobile-first* dan *offline-first* terpadu untuk digitalisasi proses Serah Terima Pertama (PHO) pekerjaan konstruksi keairan. Aplikasi ini mengotomatisasi pencocokan dimensi rencana MC-100 terhadap realisasi fisik di lapangan, mendokumentasikan temuan dengan foto ber-watermark metadata autentik (GPS & stempel waktu), dan menerbitkan Berita Acara PHO resmi beserta Lampiran Pengukuran Dimensi (A4 standar dinas teknis) langsung di lapangan.
+SI-MONEV & PHO PSDA adalah instrumen monitoring evaluasi (*monev*) dan inspeksi lapangan *mobile-first* serta *offline-first* terpadu untuk digitalisasi seluruh siklus hidup kontrak konstruksi keairan — mulai dari pengendalian jadwal Kurva-S, pencatatan progres fisik/keuangan berkala, pengendalian mutu & Non-Conformance Report (NCR), inspeksi uji petik Serah Terima Pertama (PHO), hingga masa pemeliharaan dan Serah Terima Akhir (FHO). Aplikasi ini mengotomatisasi pemantauan deviasi jadwal, pencocokan dimensi rencana MC-100 terhadap realisasi fisik di lapangan, mendokumentasikan temuan dengan foto ber-watermark metadata autentik (GPS & stempel waktu), dan menerbitkan Laporan Monev Berkala, Berita Acara PHO resmi, serta Berita Acara FHO format standar dinas teknis (A4 fisik).
 
 ## Positioning
 
-Satu-satunya sistem inspeksi sipil keairan mandiri (*standalone PWA*) yang menggabungkan kalkulasi hidraulis dan geometris berstandar KP PU/SNI secara luring 100% tanpa ketergantungan koneksi internet, dilengkapi audit trail deviasi dimensi multi-sampel dan analisis cacat mutu AI (Gemini 2.5 Flash) dengan fallback pustaka lokal.
+Satu-satunya sistem monitoring evaluasi dan inspeksi sipil keairan mandiri (*standalone PWA*) yang menggabungkan kontrol jadwal Kurva-S, manajemen NCR/cacat mutu, dan kalkulasi hidraulis/geometris berstandar KP PU/SNI secara luring 100% tanpa ketergantungan koneksi internet, dilengkapi audit trail deviasi multi-sampel dan analisis cacat mutu AI (Gemini 2.5 Flash) dengan fallback pustaka lokal.
 
 ## Operating Context
 

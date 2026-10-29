@@ -106,7 +106,80 @@ export interface InspectionSegment {
 
 export type ConclusionMode = 'OTOMATIS' | 'DAPAT_DITERIMA' | 'DITERIMA_DENGAN_CATATAN' | 'BELUM_DAPAT_DITERIMA';
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export type MonevStatus = 'ON_TRACK' | 'AT_RISK' | 'CRITICAL_DELAY';
+
+export type NCRStatus = 'OPEN' | 'UNDER_REVIEW' | 'CLOSED';
+
+export interface Milestone {
+  id: string;
+  label: string;
+  plannedDate: string;
+  actualDate?: string;
+  targetPercent: number;
+  isCompleted: boolean;
+}
+
+export interface ContractTimeline {
+  spmkNumber?: string;
+  spmkDate?: string;
+  startDate?: string;
+  endDate?: string;
+  totalCalendarDays?: number;
+  fhoTargetDate?: string;
+  milestones?: Milestone[];
+}
+
+export interface ProgressPeriod {
+  id: string;
+  periodNumber: number;
+  periodType: 'MINGGUAN' | 'BULANAN';
+  label: string;
+  startDate: string;
+  endDate: string;
+  plannedPhysicalPercent: number;
+  actualPhysicalPercent: number;
+  plannedFinancialPercent?: number;
+  actualFinancialPercent?: number;
+  weatherSummary?: string;
+  workerCount?: number;
+  notes?: string;
+  recordedBy?: string;
+  updatedAt?: string;
+}
+
+export interface NCRItem {
+  id: string;
+  ncrNumber: string;
+  issuedDate: string;
+  issuedBy: string;
+  staReference?: string;
+  linkedSegmentId?: string;
+  linkedDefectId?: string;
+  severity: Severity;
+  findingDescription: string;
+  rootCause?: string;
+  correctiveAction: string;
+  targetClosureDate: string;
+  actualClosureDate?: string;
+  status: NCRStatus;
+  closureNotes?: string;
+  verifiedBy?: string;
+  photoId?: string;
+}
+
+export interface MaintenanceRecord {
+  id: string;
+  visitDate: string;
+  inspectorName: string;
+  staReference?: string;
+  defectReference?: string;
+  actionTaken: string;
+  isResolved: boolean;
+  notes?: string;
+  photoId?: string;
+}
+
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export interface PHOProject {
   id: string;
@@ -147,4 +220,8 @@ export interface PHOProject {
   };
   conclusionMode: ConclusionMode;
   segments: InspectionSegment[];
+  timeline?: ContractTimeline;
+  progressPeriods?: ProgressPeriod[];
+  ncrItems?: NCRItem[];
+  maintenanceRecords?: MaintenanceRecord[];
 }

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   Building2,
+  Calendar,
   Database,
   Download,
   FileJson,
@@ -62,6 +63,8 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
     metaUp((x) => ({ ...x, inspectionTeam: { ...x.inspectionTeam, [k]: v } }));
   const setA = <K extends keyof PHOProject['agencyHeader']>(k: K, v: PHOProject['agencyHeader'][K]) =>
     metaUp((x) => ({ ...x, agencyHeader: { ...x.agencyHeader, [k]: v } }));
+  const setL = <K extends keyof NonNullable<PHOProject['timeline']>>(k: K, v: NonNullable<PHOProject['timeline']>[K]) =>
+    metaUp((x) => ({ ...x, timeline: { ...x.timeline, [k]: v } }));
 
   const onCsv = async (f: File) => {
     const text = await f.text();
@@ -371,6 +374,48 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
             value={p.contractInfo.dimensionToleranceMeter}
             onChange={(v) => update((x) => ({ ...x, contractInfo: { ...x.contractInfo, dimensionToleranceMeter: Math.max(0, v ?? 0) } }))}
             hint="Kurang dimensi bila (aktual − MC-100) < −τ"
+          />
+        </div>
+      </Card>
+
+      <Card title="Jadwal Pelaksanaan & SPMK (MONEV Timeline)" icon={<Calendar className="h-5 w-5 text-amber-500" />}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextField
+            label="Nomor SPMK (Surat Perintah Mulai Kerja)"
+            placeholder="Contoh: 602.1/045.SPMK/PSDA/2026"
+            value={p.timeline?.spmkNumber ?? ''}
+            onChange={(v) => setL('spmkNumber', v)}
+          />
+          <TextField
+            label="Tanggal SPMK"
+            type="date"
+            value={p.timeline?.spmkDate ?? ''}
+            onChange={(v) => setL('spmkDate', v)}
+          />
+          <TextField
+            label="Tanggal Mulai Pelaksanaan Fisik"
+            type="date"
+            value={p.timeline?.startDate ?? ''}
+            onChange={(v) => setL('startDate', v)}
+          />
+          <TextField
+            label="Tanggal Selesai Pelaksanaan (Batas Akhir)"
+            type="date"
+            value={p.timeline?.endDate ?? ''}
+            onChange={(v) => setL('endDate', v)}
+          />
+          <NumField
+            label="Masa Pelaksanaan Kontrak"
+            unit="hari kalender"
+            integer
+            value={p.timeline?.totalCalendarDays ?? 150}
+            onChange={(v) => setL('totalCalendarDays', v ?? 150)}
+          />
+          <TextField
+            label="Target Tanggal FHO (Serah Terima Akhir)"
+            type="date"
+            value={p.timeline?.fhoTargetDate ?? ''}
+            onChange={(v) => setL('fhoTargetDate', v)}
           />
         </div>
       </Card>
