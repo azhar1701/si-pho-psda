@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, ClipboardList, FileText, FolderCog, HardDrive, Loader2, Ruler, TrendingUp, Wifi, WifiOff } from 'lucide-react';
-import type { PHOProject } from './types';
+import type { MonevProject } from './types';
 import { recomputeProject } from './lib/calc';
 import { loadProject, saveProject, type StorageMode } from './lib/storage';
 import { buildDemoProject } from './lib/demo';
@@ -13,18 +13,18 @@ import ReportView from './components/ReportView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export type ViewId = 'proyek' | 'monev' | 'segmen' | 'kamera' | 'laporan';
-export type Updater = (fn: (p: PHOProject) => PHOProject) => void;
+export type Updater = (fn: (p: MonevProject) => MonevProject) => void;
 
 const NAV: { id: ViewId; label: string; icon: typeof Camera }[] = [
   { id: 'proyek', label: 'Proyek', icon: FolderCog },
   { id: 'monev', label: 'Monev', icon: TrendingUp },
-  { id: 'segmen', label: 'Opname STA', icon: Ruler },
+  { id: 'segmen', label: 'Uji Petik STA', icon: Ruler },
   { id: 'kamera', label: 'Kamera', icon: Camera },
   { id: 'laporan', label: 'Laporan', icon: FileText },
 ];
 
 export default function App() {
-  const [project, setProject] = useState<PHOProject | null>(null);
+  const [project, setProject] = useState<MonevProject | null>(null);
   const [loadingStep, setLoadingStep] = useState<string>('Memeriksa basis data lokal IndexedDB…');
   const [view, setView] = useState<ViewId>('monev');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -49,23 +49,27 @@ export default function App() {
         } else {
           setLoadingStep('Menyiapkan proyek contoh D.I. Lakbok Utara…');
           const demo = await buildDemoProject();
+          await saveProject(demo);
           setProject(demo);
           setSelectedId(demo.segments[0]?.id ?? null);
         }
-      } catch (err) {
-        notify('Gagal inisialisasi basis data: ' + (err as Error).message, 'err');
+      } catch (e) {
+        console.error(e);
+        notify('Inisialisasi basis data gagal: ' + (e as Error).message, 'err');
       }
     })();
-
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener('online', on);
-    window.addEventListener('offline', off);
-    return () => {
-      window.removeEventListener('online', on);
-      window.removeEventListener('offline', off);
-    };
   }, [notify]);
+
+  useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
 
   // Debounce penyimpanan otomatis ke 1200ms agar efisien saat pengetikan cepat (M-02)
   useEffect(() => {
@@ -94,7 +98,7 @@ export default function App() {
     setProject((prev) => (prev ? { ...fn(prev), updatedAt: new Date().toISOString() } : prev));
   }, []);
 
-  const replaceProject = useCallback((p: PHOProject) => {
+  const replaceProject = useCallback((p: MonevProject) => {
     setProject(recomputeProject(p));
     setSelectedId(p.segments[0]?.id ?? null);
   }, []);
@@ -104,7 +108,7 @@ export default function App() {
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#0f172a] text-white">
         <Loader2 className="h-10 w-10 animate-spin text-amber-400" />
         <p className="text-sm font-semibold tracking-wide text-slate-200">{loadingStep}</p>
-        <span className="text-xs text-slate-400">SI-MONEV &amp; PHO PSDA · Standalone Offline PWA</span>
+        <span className="text-xs text-slate-400">SI-MONEV PSDA · Monitoring &amp; Serah Terima Konstruksi Keairan</span>
       </div>
     );
   }
@@ -135,7 +139,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="text-sm font-black tracking-wider text-white">SI-MONEV PSDA</span>
               <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.2 rounded border border-amber-400/20 hidden sm:inline-block">
-                MONITORING &amp; PHO
+                MONEV &amp; SERAH TERIMA
               </span>
             </div>
             <div className="truncate text-xs text-slate-300 font-medium">

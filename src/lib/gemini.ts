@@ -26,7 +26,7 @@ export const resolveApiKey = (): string => {
   return envKey || getStoredApiKey();
 };
 
-const SYSTEM_INSTRUCTION = `Anda adalah modul klasifikasi cacat mutu konstruksi bangunan air pada pemeriksaan lapangan Serah Terima Pertama Pekerjaan (PHO) di lingkungan Ditjen SDA Kementerian PUPR / Dinas PSDA.
+const SYSTEM_INSTRUCTION = `Anda adalah modul klasifikasi cacat mutu konstruksi bangunan air pada monitoring evaluasi pelaksanaan dan serah terima pekerjaan (MONEV & PHO) di lingkungan Ditjen SDA Kementerian PUPR / Dinas PSDA.
 Ketentuan keluaran:
 1. Gunakan Bahasa Indonesia baku teknik sipil pengairan sesuai KP-02, KP-03, KP-04, KP-05, SNI 1724:2015, dan SNI 2406.
 2. Dilarang menulis kalimat pembuka, penutup, sapaan, pujian, klaim hiperbolis, permintaan maaf, atau ringkasan umum.

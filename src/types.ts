@@ -81,16 +81,32 @@ export interface InspectionSegment {
   subType: GeometrySubType;
   positionSide: PositionSide;
   segmentLengthMeter: number;
-  dataSource: 'IMPORT_MC100' | 'INPUT_LAPANGAN';
+  dataSource: 'IMPORT_MC0' | 'IMPORT_MC100' | 'IMPORT_MC_TERPADU' | 'INPUT_LAPANGAN';
+
+  // --- PILAR 1: MUTUAL CHECK 0% (MC-0 / Rekayasa Lapangan Awal) ---
+  mc0Dimensions?: DimensionSet;
+  mc0VolumeContractM3?: number | null;
+  mc0CrossSectionAreaM2?: number;
+  mc0VolumeM3?: number;
+
+  // --- PILAR 2: MUTUAL CHECK 100% (MC-100 / Rencana As-Built Akhir) ---
   mc100Dimensions: DimensionSet;
   /** Volume kontrak MC-100 dari dokumen (opsional). Bila diisi, menggantikan volume hitungan. */
   mc100VolumeContractM3?: number | null;
   mc100CrossSectionAreaM2: number;
   mc100VolumeM3: number;
+
+  // --- KOMPARASI REKAYASA LAPANGAN (CCO: MC-0 vs MC-100) ---
+  volumeCcoVarianceM3?: number; // V_MC100 - V_MC0
+  volumeCcoVariancePercent?: number; // (V_MC100 - V_MC0) / V_MC0 * 100%
+
+  // --- PILAR 3: REALISASI AKTUAL (Hasil Ukur Lapangan) ---
   samples: MeasurementSample[];
   averagedActualDimensions: DimensionSet;
   actualCrossSectionAreaM2: number;
   actualVolumeM3: number;
+
+  // --- EVALUASI KEPATUHAN PELAKSANAAN (Aktual vs MC-100) ---
   volumeDeviationM3: number;
   volumeAchievementPercent: number;
   hasDimensionDeficit: boolean;
@@ -99,6 +115,7 @@ export interface InspectionSegment {
   /** Parameter dengan deviasi negatif melampaui toleransi pada nilai rerata terpilih */
   averageDeficitParams: DimKey[];
   evaluationStatus: EvaluationStatus;
+
   visualChecklist: VisualChecklistItem[];
   defects: DefectItem[];
   inspectorNotes?: string;
@@ -179,9 +196,23 @@ export interface MaintenanceRecord {
   photoId?: string;
 }
 
+export interface FHOInfo {
+  baFhoNumber?: string;
+  baFhoDate?: string;
+  inspectionDate?: string;
+  leadInspectorName?: string;
+  leadInspectorNip?: string;
+  contractorRepName?: string;
+  contractorRepTitle?: string;
+  consultantRepName?: string;
+  consultantRepTitle?: string;
+  warrantyStatus?: 'DALAM_PEMELIHARAAN' | 'MEMENUHI_SYARAT_FHO' | 'TERLAMBAT_PERBAIKAN';
+  closureNotes?: string;
+}
+
 export const CURRENT_SCHEMA_VERSION = 3;
 
-export interface PHOProject {
+export interface MonevProject {
   id: string;
   schemaVersion: number;
   updatedAt: string;
@@ -195,7 +226,10 @@ export interface PHOProject {
     packageName: string;
     contractNumber: string;
     contractDate: string;
+    mc0Number?: string;
+    mc0Date?: string;
     mc100Number: string;
+    mc100Date?: string;
     contractValueIdr: number;
     fiscalYear: string;
     irrigationAreaOrRiverName: string;
@@ -224,4 +258,8 @@ export interface PHOProject {
   progressPeriods?: ProgressPeriod[];
   ncrItems?: NCRItem[];
   maintenanceRecords?: MaintenanceRecord[];
+  fhoInfo?: FHOInfo;
 }
+
+/** Tipe backward-compatibility: PHOProject adalah alias resmi untuk MonevProject */
+export type PHOProject = MonevProject;

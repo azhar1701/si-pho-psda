@@ -1,4 +1,4 @@
-import type { DefectItem, InspectionSegment, PHOProject } from '../types';
+import type { DefectItem, InspectionSegment, MonevProject } from '../types';
 import { blankProject, newSample, newSegment } from './factory';
 import { recomputeProject, recomputeSegment } from './calc';
 import { uid } from './format';
@@ -98,37 +98,31 @@ const syntheticPhoto = (kind: 'pasangan' | 'pintu' | 'bronjong' | 'galian', seed
         ctx.stroke();
       }
   } else {
-    ctx.fillStyle = '#7b5a3a';
+    ctx.fillStyle = '#5c4b37';
+    ctx.fillRect(0, 380, 1280, 580);
+    ctx.fillStyle = '#423526';
     ctx.beginPath();
-    ctx.moveTo(0, 380);
-    ctx.lineTo(1280, 380);
+    ctx.moveTo(0, 540);
+    ctx.lineTo(400, 720);
+    ctx.lineTo(880, 720);
+    ctx.lineTo(1280, 540);
     ctx.lineTo(1280, 960);
     ctx.lineTo(0, 960);
     ctx.fill();
-    ctx.fillStyle = '#5a7fa0';
+    ctx.fillStyle = '#2b2117';
     ctx.beginPath();
-    ctx.moveTo(380, 960);
-    ctx.lineTo(520, 520);
-    ctx.lineTo(760, 520);
-    ctx.lineTo(900, 960);
+    ctx.ellipse(640, 720, 180, 14, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#8f6b45';
-    ctx.beginPath();
-    ctx.ellipse(640, 760, 130, 50, 0, 0, Math.PI * 2);
-    ctx.fill();
+    for (let i = 0; i < 180; i++) {
+      ctx.fillStyle = `rgba(20, 15, 10, ${0.15 + rnd() * 0.25})`;
+      ctx.fillRect(rnd() * 1280, 380 + rnd() * 580, 2 + rnd() * 6, 2 + rnd() * 6);
+    }
   }
-  // rambu ukur
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(1100, 340, 36, 560);
-  for (let i = 0; i < 28; i++) {
-    ctx.fillStyle = i % 2 ? '#dc2626' : '#111827';
-    ctx.fillRect(1100, 340 + i * 20, 18, 10);
-  }
-  return c.toDataURL('image/jpeg', 0.82);
+  return c.toDataURL('image/jpeg', 0.85);
 };
 
 const mkDefect = async (
-  p: PHOProject,
+  p: MonevProject,
   seg: InspectionSegment,
   code: string,
   kind: Parameters<typeof syntheticPhoto>[0],
@@ -138,7 +132,7 @@ const mkDefect = async (
   const pr = DEFECT_PRESETS.find((x) => x.code === code)!;
   const capturedAt = new Date(`${p.inspectionTeam.inspectionDate}T09:${String(10 + seed).padStart(2, '0')}:00`).toISOString();
   const itemId = uid('dft');
-  const photoId = `pho_${itemId}`;
+  const photoId = `img_${itemId}`;
   const d: DefectItem = {
     id: itemId,
     staId: seg.id,
@@ -167,7 +161,7 @@ const mkDefect = async (
   return d;
 };
 
-export const buildDemoProject = async (): Promise<PHOProject> => {
+export const buildDemoProject = async (): Promise<MonevProject> => {
   const p = blankProject();
   p.agencyHeader = {
     ministryOrProvince: 'PEMERINTAH KABUPATEN CIAMIS',
@@ -178,7 +172,10 @@ export const buildDemoProject = async (): Promise<PHOProject> => {
     packageName: 'Rehabilitasi Jaringan Irigasi D.I. Lakbok Utara - Kabupaten Ciamis',
     contractNumber: '602.1/045/SPK/PSDA-DPUPR/2026',
     contractDate: '2026-05-04',
+    mc0Number: '602.1/045.MC0/PSDA/V/2026',
+    mc0Date: '2026-05-24',
     mc100Number: '602.1/045.MC100/PSDA/X/2026',
+    mc100Date: '2026-10-06',
     contractValueIdr: 2846750000,
     fiscalYear: '2026',
     irrigationAreaOrRiverName: 'D.I. Lakbok Utara',
@@ -319,13 +316,13 @@ export const buildDemoProject = async (): Promise<PHOProject> => {
       label: 'Minggu ke-07',
       startDate: '2026-06-22',
       endDate: '2026-06-28',
-      plannedPhysicalPercent: 78.5,
-      actualPhysicalPercent: 77.2,
+      plannedPhysicalPercent: 78.0,
+      actualPhysicalPercent: 76.8,
       plannedFinancialPercent: 50.0,
       actualFinancialPercent: 50.0,
       weatherSummary: 'Cerah',
-      workerCount: 26,
-      notes: 'Plesteran dan siaran 1:2 seluruh saluran pasangan batu.',
+      workerCount: 30,
+      notes: 'Penyelesaian siaran dan plesteran ban-banan saluran sekunder.',
     },
     {
       id: 'prd-08',
@@ -334,13 +331,13 @@ export const buildDemoProject = async (): Promise<PHOProject> => {
       label: 'Minggu ke-08',
       startDate: '2026-06-29',
       endDate: '2026-07-05',
-      plannedPhysicalPercent: 91.0,
-      actualPhysicalPercent: 89.8,
+      plannedPhysicalPercent: 89.0,
+      actualPhysicalPercent: 88.0,
       plannedFinancialPercent: 75.0,
       actualFinancialPercent: 75.0,
-      weatherSummary: 'Cerah',
-      workerCount: 20,
-      notes: 'Pembersihan dasar saluran dan perapihan tebing.',
+      weatherSummary: 'Hujan Deras',
+      workerCount: 22,
+      notes: 'Uji pengaliran air pertama; evaluasi rembesan pintu dan sedimen alur.',
     },
     {
       id: 'prd-09',
@@ -421,15 +418,32 @@ export const buildDemoProject = async (): Promise<PHOProject> => {
     },
   ];
 
+  // Data Administrasi FHO
+  p.fhoInfo = {
+    baFhoNumber: '602.1/045.BA-FHO/PSDA/IV/2027',
+    baFhoDate: '2027-04-05',
+    inspectionDate: '2027-04-04',
+    leadInspectorName: 'Ir. Asep Saepudin, M.T.',
+    leadInspectorNip: '19760812 200312 1 004',
+    contractorRepName: 'H. Ujang Suryana',
+    contractorRepTitle: 'Direktur',
+    consultantRepName: 'Rina Marlina, S.T.',
+    consultantRepTitle: 'Site Engineer',
+    warrantyStatus: 'DALAM_PEMELIHARAAN',
+    closureNotes: 'Masa pemeliharaan sedang berjalan (180 hari kalender). Pemantauan perbaikan defect list PHO aktif dipantau.',
+  };
+
   // 1. Saluran Irigasi — trapesium pasangan batu (uji petik aktif)
+  // Menampilkan variasi CCO: MC-0 (b=1.40, B=2.60) direkayasa ulang menjadi MC-100 (b=1.50, B=2.70)
   const s1 = newSegment({
     staCode: 'STA 0+000 - 0+050',
     structureName: 'Saluran Sekunder Lakbok Utara (BLU.1 - BLU.2)',
     subType: 'TRAPESIUM_PASANGAN_BATU',
     positionSide: 'KIRI_KANAN',
     length: 50,
-    dataSource: 'IMPORT_MC100',
+    dataSource: 'IMPORT_MC_TERPADU',
     tol: TOL,
+    mc0: { b: 1.4, B: 2.6, H: 1.2, m: 0.5, ta: 0.3, tb: 0.4, td: 0.2, wallSides: 2 },
     mc100: { b: 1.5, B: 2.7, H: 1.2, m: 0.5, ta: 0.3, tb: 0.4, td: 0.2, wallSides: 2 },
   });
   s1.samples = [
@@ -457,8 +471,9 @@ export const buildDemoProject = async (): Promise<PHOProject> => {
     subType: 'BANGUNAN_BAGI_SADAP_PINTU',
     positionSide: 'AS_TENGAH',
     length: 4,
-    dataSource: 'IMPORT_MC100',
+    dataSource: 'IMPORT_MC_TERPADU',
     tol: TOL,
+    mc0: { b: 0.8, H: 1.0, ta: 0.3, tb: 1.5, B: 3.0, td: 0.25 },
     mc100: { b: 0.8, H: 1.0, ta: 0.3, tb: 1.5, B: 3.0, td: 0.25 },
   });
   s2.samples = [
@@ -480,6 +495,7 @@ export const buildDemoProject = async (): Promise<PHOProject> => {
     length: 10,
     dataSource: 'INPUT_LAPANGAN',
     tol: TOL,
+    mc0: { b: 2.0, B: 1.0, H: 0.5, unitCount: 3 },
     mc100: { b: 2.0, B: 1.0, H: 0.5, unitCount: 3 },
   });
   s3.samples = [
@@ -493,14 +509,16 @@ export const buildDemoProject = async (): Promise<PHOProject> => {
   }));
 
   // 4. Normalisasi — galian alur
+  // Menampilkan CCO: MC-0 (td=1.40 m) direvisi menjadi MC-100 (td=1.50 m) karena pendalaman dasar alur
   const s4 = newSegment({
     staCode: 'STA 3+000 - 3+100',
     structureName: 'Normalisasi Saluran Pembuang Cikaso',
     subType: 'GALIAN_ALUR_TRAPESIUM',
     positionSide: 'AS_TENGAH',
     length: 100,
-    dataSource: 'IMPORT_MC100',
+    dataSource: 'IMPORT_MC_TERPADU',
     tol: TOL,
+    mc0: { b: 3.0, B: 6.0, td: 1.4, m: 1.0 },
     mc100: { b: 3.0, B: 6.0, td: 1.5, m: 1.0 },
   });
   s4.samples = [

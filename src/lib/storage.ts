@@ -1,14 +1,19 @@
-import type { PHOProject } from '../types';
+import type { MonevProject } from '../types';
 import { CURRENT_SCHEMA_VERSION } from '../types';
 import { recomputeProject } from './calc';
 import { blankProject } from './factory';
 import { validateProjectSchema } from './schema';
 
-const LS_KEY_V3 = 'sipho-psda:project:v3';
+const LS_KEY_PRIMARY = 'simonev-psda:project:v3';
+const LS_KEY_V3_LEGACY = 'sipho-psda:project:v3';
 const LS_KEY_V2 = 'sipho-psda:project:v2';
 const LS_KEY_V1 = 'sipho-psda:project:v1';
-const LS_MODE = 'sipho-psda:storage-mode';
-const SS_APIKEY = 'sipho-psda:gemini-key';
+const LS_MODE = 'simonev-psda:storage-mode';
+const LS_MODE_LEGACY = 'sipho-psda:storage-mode';
+const SS_APIKEY = 'simonev-psda:gemini-key';
+const SS_APIKEY_LEGACY = 'sipho-psda:gemini-key';
+
+// Database IndexedDB tetap memakai nama 'sipho-psda' agar foto resolusi tinggi offline pengguna tidak hilang!
 const DB_NAME = 'sipho-psda';
 const STORE = 'kv';
 const PHOTO_STORE = 'photos';
@@ -165,7 +170,7 @@ export const deletePhoto = async (id: string): Promise<void> => {
 };
 
 /** Migrasi foto legacy base64 dataUrl ke IndexedDB Blob store */
-export const migrateProjectPhotos = async (p: PHOProject): Promise<PHOProject> => {
+export const migrateProjectPhotos = async (p: MonevProject): Promise<MonevProject> => {
   let changed = false;
   const updatedSegments = await Promise.all(
     p.segments.map(async (seg) => {
@@ -173,7 +178,7 @@ export const migrateProjectPhotos = async (p: PHOProject): Promise<PHOProject> =
       const updatedDefects = await Promise.all(
         seg.defects.map(async (def) => {
           if (!def.watermarkedPhotoId && def.watermarkedPhotoDataUrl && def.watermarkedPhotoDataUrl.startsWith('data:')) {
-            const photoId = `pho_${def.id}`;
+            const photoId = `img_${def.id}`;
             try {
               await savePhoto(photoId, def.watermarkedPhotoDataUrl);
               segChanged = true;
@@ -209,9 +214,9 @@ export const migrateProjectPhotos = async (p: PHOProject): Promise<PHOProject> =
 };
 
 /** Normalisasi berkas proyek (impor JSON / versi lama) agar seluruh kolom wajib tersedia */
-export const normalizeProject = (raw: unknown): PHOProject => {
+export const normalizeProject = (raw: unknown): MonevProject => {
   const base = blankProject();
-  const r = (raw ?? {}) as Partial<PHOProject>;
+  const r = (raw ?? {}) as Partial<MonevProject>;
   if (!Array.isArray(r.segments)) {
     throw new Error('Struktur berkas proyek tidak valid: daftar segmen (segments) tidak ditemukan.');
   }
@@ -228,8 +233,12 @@ export const normalizeProject = (raw: unknown): PHOProject => {
     progressPeriods: r.progressPeriods ?? base.progressPeriods ?? [],
     ncrItems: r.ncrItems ?? base.ncrItems ?? [],
     maintenanceRecords: r.maintenanceRecords ?? base.maintenanceRecords ?? [],
+    fhoInfo: { ...base.fhoInfo, ...(r.fhoInfo ?? {}) },
     segments: r.segments.map((s) => ({
       ...s,
+      mc0Dimensions: s.mc0Dimensions && Object.keys(s.mc0Dimensions).length > 0 ? s.mc0Dimensions : s.mc100Dimensions ?? {},
+      mc0VolumeContractM3: s.mc0VolumeContractM3 ?? null,
+      mc100Dimensions: s.mc100Dimensions ?? {},
       samples: (s.samples ?? []).map((x) => ({
         ...x,
         isSelected: x.isSelected !== false,
@@ -244,7 +253,6 @@ export const normalizeProject = (raw: unknown): PHOProject => {
       })),
       deficitParams: s.deficitParams ?? [],
       averageDeficitParams: s.averageDeficitParams ?? [],
-      mc100Dimensions: s.mc100Dimensions ?? {},
     })),
   };
 
@@ -252,11 +260,18 @@ export const normalizeProject = (raw: unknown): PHOProject => {
   return recomputeProject(validated);
 };
 
-export const loadProject = async (): Promise<PHOProject | null> => {
+export const loadProject = async (): Promise<MonevProject | null> => {
   try {
-    const mode = (safeStorage.getItem(localStorage, LS_MODE) as StorageMode) || 'localStorage';
-    // Try V3, then V2, then V1
-    let txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V3) : safeStorage.getItem(localStorage, LS_KEY_V3);
+    const mode =
+      (safeStorage.getItem(localStorage, LS_MODE) as StorageMode) ||
+      (safeStorage.getItem(localStorage, LS_MODE_LEGACY) as StorageMode) ||
+      'localStorage';
+
+    // Rantai pembacaan berjenjang: MONEV V3 -> SIPHO V3 -> V2 -> V1
+    let txt = mode === 'indexedDB' ? await idbGet(LS_KEY_PRIMARY) : safeStorage.getItem(localStorage, LS_KEY_PRIMARY);
+    if (!txt) {
+      txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V3_LEGACY) : safeStorage.getItem(localStorage, LS_KEY_V3_LEGACY);
+    }
     if (!txt) {
       txt = mode === 'indexedDB' ? await idbGet(LS_KEY_V2) : safeStorage.getItem(localStorage, LS_KEY_V2);
     }
@@ -276,16 +291,19 @@ export const loadProject = async (): Promise<PHOProject | null> => {
 };
 
 /** Simpan ke localStorage; bila kuota penuh (foto), beralih otomatis ke IndexedDB */
-export const saveProject = async (p: PHOProject): Promise<StorageMode> => {
+export const saveProject = async (p: MonevProject): Promise<StorageMode> => {
   const txt = JSON.stringify(p);
   try {
-    safeStorage.setItem(localStorage, LS_KEY_V3, txt);
+    safeStorage.setItem(localStorage, LS_KEY_PRIMARY, txt);
+    safeStorage.setItem(localStorage, LS_KEY_V3_LEGACY, txt); // Simpan salinan backward-compat
     safeStorage.setItem(localStorage, LS_MODE, 'localStorage');
     return 'localStorage';
   } catch {
-    await idbPut(LS_KEY_V3, txt);
+    await idbPut(LS_KEY_PRIMARY, txt);
+    await idbPut(LS_KEY_V3_LEGACY, txt);
     try {
-      safeStorage.removeItem(localStorage, LS_KEY_V3);
+      safeStorage.removeItem(localStorage, LS_KEY_PRIMARY);
+      safeStorage.removeItem(localStorage, LS_KEY_V3_LEGACY);
       safeStorage.setItem(localStorage, LS_MODE, 'indexedDB');
     } catch {
       /* abaikan */
@@ -297,7 +315,7 @@ export const saveProject = async (p: PHOProject): Promise<StorageMode> => {
 // API Key disimpan di sessionStorage agar tidak tersimpan permanen di disk (K-02)
 export const getStoredApiKey = (): string => {
   try {
-    return safeStorage.getItem(sessionStorage, SS_APIKEY) || '';
+    return safeStorage.getItem(sessionStorage, SS_APIKEY) || safeStorage.getItem(sessionStorage, SS_APIKEY_LEGACY) || '';
   } catch {
     return '';
   }
@@ -306,6 +324,7 @@ export const getStoredApiKey = (): string => {
 export const setStoredApiKey = (k: string): void => {
   try {
     safeStorage.setItem(sessionStorage, SS_APIKEY, k);
+    safeStorage.setItem(sessionStorage, SS_APIKEY_LEGACY, k);
   } catch {
     /* abaikan */
   }

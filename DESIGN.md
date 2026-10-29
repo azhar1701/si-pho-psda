@@ -1,6 +1,6 @@
 ---
-name: SI-PHO PSDA Design System
-description: Sistem desain berstandar industri teknik sipil keairan untuk operasional inspeksi lapangan berdaya kontras tinggi dan dokumen legal PHO.
+name: SI-MONEV PSDA Design System
+description: Sistem desain berstandar industri teknik sipil keairan untuk operasional monitoring evaluasi, inspeksi lapangan berdaya kontras tinggi, dan dokumen legal MONEV/PHO/FHO.
 colors:
   primary: "#0f172a"
   primary-light: "#1e293b"

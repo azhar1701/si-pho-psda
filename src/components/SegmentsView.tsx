@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, Plus, Search, X } from 'lucide-react';
-import type { GeometrySubType, PHOProject, PositionSide, StructureCategory } from '../types';
+import type { GeometrySubType, MonevProject, PositionSide, StructureCategory } from '../types';
 import type { Updater } from '../App';
 import { Btn, Card, NumField, SelectField, TextField, cx } from './ui';
 import { StatusBadge } from './StatusBadge';
-import { CATEGORIES, CATEGORY_ORDER, POSITION_LABEL, SUBTYPES } from '../lib/templates';
+import { CATEGORIES, CATEGORY_ORDER, SIDE_OPTIONS, SUBTYPES } from '../lib/templates';
 import { fmt } from '../lib/format';
 import { newSegment } from '../lib/factory';
 import { projectSummary } from '../lib/calc';
 import SegmentEditor from './SegmentEditor';
 
 interface Props {
-  project: PHOProject;
+  project: MonevProject;
   update: Updater;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
@@ -19,10 +19,6 @@ interface Props {
   openCamera: () => void;
 }
 
-export const SIDE_OPTIONS = (Object.keys(POSITION_LABEL) as PositionSide[]).map((k) => ({
-  value: k,
-  label: POSITION_LABEL[k],
-}));
 
 export default function SegmentsView({
   project,
@@ -51,7 +47,7 @@ export default function SegmentsView({
   };
 
   return (
-    <div className="lg:grid lg:grid-cols-[390px_minmax(0,1fr)] lg:gap-4">
+    <div className="lg:grid lg:grid-cols-[410px_minmax(0,1fr)] lg:gap-4">
       <div className={cx('space-y-3', mobileEdit && 'hidden lg:block')}>
         {/* Metric Overview Strip */}
         <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-xs space-y-3">
@@ -79,9 +75,9 @@ export default function SegmentsView({
             </div>
           </div>
 
-          <div className="space-y-1.5 pt-1 border-t border-slate-100">
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-700">Progres Opname</span>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-700">Kemajuan Uji Petik</span>
               <span className="num font-black text-slate-900">
                 {sum.total > 0 ? Math.round((sum.measured / sum.total) * 100) : 0}%
               </span>
@@ -91,6 +87,13 @@ export default function SegmentsView({
                 className="h-full rounded-full bg-emerald-500 transition-all duration-300"
                 style={{ width: `${sum.total > 0 ? (sum.measured / sum.total) * 100 : 0}%` }}
               />
+            </div>
+            <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 font-medium">
+              <span>MC-0: <strong className="text-emerald-700 font-bold">{fmt(sum.mc0Vol, 1)} m³</strong></span>
+              <span>MC-100: <strong className="text-sky-700 font-bold">{fmt(sum.mcVol, 1)} m³</strong></span>
+              <span>CCO: <strong className={sum.ccoVariancePercent >= 0 ? 'text-purple-700 font-bold' : 'text-amber-700 font-bold'}>
+                {sum.ccoVariancePercent >= 0 ? '+' : ''}{fmt(sum.ccoVariancePercent, 1)}%
+              </strong></span>
             </div>
           </div>
         </div>
@@ -126,6 +129,7 @@ export default function SegmentsView({
           {list.map((s) => {
             const defects = s.defects.filter((d) => d.entryType === 'CACAT_MUTU').length;
             const isSel = s.id === selectedId;
+            const cco = s.volumeCcoVariancePercent ?? 0;
             return (
               <li key={s.id}>
                 <button
@@ -149,9 +153,14 @@ export default function SegmentsView({
                       {CATEGORIES[s.category].code}
                     </span>
                     <span>{SUBTYPES[s.subType].shortLabel}</span>
-                    <span className="num">
-                      V: {fmt(s.actualVolumeM3, 1)} / {fmt(s.mc100VolumeM3, 1)} m³
+                    <span className="num font-bold text-slate-700">
+                      V: {fmt(s.mc0VolumeM3 ?? s.mc100VolumeM3, 1)} → {fmt(s.mc100VolumeM3, 1)} → {fmt(s.actualVolumeM3, 1)} m³
                     </span>
+                    {Math.abs(cco) > 0.01 && (
+                      <span className="font-bold text-purple-700 text-[11px]">
+                        CCO {cco > 0 ? '+' : ''}{fmt(cco, 1)}%
+                      </span>
+                    )}
                     <span>{s.samples.length} sampel</span>
                     {defects > 0 && <span className="font-bold text-rose-600">⚠ {defects} cacat</span>}
                     {s.hasDimensionDeficit && <span className="font-bold text-rose-600">KURANG DIMENSI</span>}
@@ -162,7 +171,7 @@ export default function SegmentsView({
           })}
           {!list.length && (
             <li className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-xs font-semibold text-slate-500 bg-white">
-              Belum ada segmen STA. Tambahkan segmen baru atau impor tabel CSV MC-100 pada tab Proyek.
+              Belum ada segmen STA. Tambahkan segmen baru atau impor tabel CSV pada tab Proyek.
             </li>
           )}
         </ul>
@@ -219,7 +228,7 @@ function AddSegmentDialog({
   onClose,
   onAdd,
 }: {
-  project: PHOProject;
+  project: MonevProject;
   onClose: () => void;
   onAdd: (s: ReturnType<typeof newSegment>) => void;
 }) {
@@ -264,7 +273,7 @@ function AddSegmentDialog({
           <TextField label="Nama Ruas / Bangunan" value={name} onChange={setName} placeholder="Contoh: Saluran Sekunder BLU.1" />
           <SelectField label="Posisi Penampang" value={side} onChange={setSide} options={SIDE_OPTIONS} />
           <NumField label={st.lengthLabel} unit={st.lengthUnit} value={L} onChange={setL} />
-          <p className="text-xs text-slate-500 font-medium">Dimensi rencana MC-100 dapat diatur pada editor setelah segmen dibuat.</p>
+          <p className="text-xs text-slate-500 font-medium">Dimensi rencana MC-0 &amp; MC-100 dapat diatur pada editor setelah segmen dibuat.</p>
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <Btn variant="secondary" onClick={onClose}>
               Batal

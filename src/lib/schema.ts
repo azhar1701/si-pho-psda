@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PHOProject } from '../types';
+import type { MonevProject } from '../types';
 
 export const DimensionSetSchema = z
   .object({
@@ -76,15 +76,31 @@ export const InspectionSegmentSchema = z.object({
     .default('TRAPESIUM_PASANGAN_BATU'),
   positionSide: z.enum(['KIRI', 'KANAN', 'KIRI_KANAN', 'AS_TENGAH']).default('AS_TENGAH'),
   segmentLengthMeter: z.number().default(0),
-  dataSource: z.enum(['IMPORT_MC100', 'INPUT_LAPANGAN']).default('INPUT_LAPANGAN'),
+  dataSource: z.enum(['IMPORT_MC0', 'IMPORT_MC100', 'IMPORT_MC_TERPADU', 'INPUT_LAPANGAN']).default('INPUT_LAPANGAN'),
+
+  // Pilar 1: MC-0 (Rekayasa Lapangan Awal)
+  mc0Dimensions: DimensionSetSchema.optional().default({}),
+  mc0VolumeContractM3: z.number().nullable().optional(),
+  mc0CrossSectionAreaM2: z.number().optional().default(0),
+  mc0VolumeM3: z.number().optional().default(0),
+
+  // Pilar 2: MC-100 (Rencana As-Built Akhir)
   mc100Dimensions: DimensionSetSchema.default({}),
   mc100VolumeContractM3: z.number().nullable().optional(),
   mc100CrossSectionAreaM2: z.number().default(0),
   mc100VolumeM3: z.number().default(0),
+
+  // Komparasi CCO (MC-0 vs MC-100)
+  volumeCcoVarianceM3: z.number().optional().default(0),
+  volumeCcoVariancePercent: z.number().optional().default(0),
+
+  // Pilar 3: Realisasi Lapangan Aktual
   samples: z.array(MeasurementSampleSchema).default([]),
   averagedActualDimensions: DimensionSetSchema.default({}),
   actualCrossSectionAreaM2: z.number().default(0),
   actualVolumeM3: z.number().default(0),
+
+  // Evaluasi Deviasi Pelaksanaan (Aktual vs MC-100)
   volumeDeviationM3: z.number().default(0),
   volumeAchievementPercent: z.number().default(100),
   hasDimensionDeficit: z.boolean().default(false),
@@ -107,7 +123,10 @@ export const ContractInfoSchema = z.object({
   packageName: z.string().default(''),
   contractNumber: z.string().default(''),
   contractDate: z.string().default(''),
+  mc0Number: z.string().optional().default(''),
+  mc0Date: z.string().optional().default(''),
   mc100Number: z.string().default(''),
+  mc100Date: z.string().optional().default(''),
   contractValueIdr: z.number().default(0),
   fiscalYear: z.string().default(''),
   irrigationAreaOrRiverName: z.string().default(''),
@@ -201,7 +220,21 @@ export const MaintenanceRecordSchema = z.object({
   photoId: z.string().optional(),
 });
 
-export const PHOProjectSchema = z.object({
+export const FHOInfoSchema = z.object({
+  baFhoNumber: z.string().optional().default(''),
+  baFhoDate: z.string().optional().default(''),
+  inspectionDate: z.string().optional().default(''),
+  leadInspectorName: z.string().optional().default(''),
+  leadInspectorNip: z.string().optional().default(''),
+  contractorRepName: z.string().optional().default(''),
+  contractorRepTitle: z.string().optional().default(''),
+  consultantRepName: z.string().optional().default(''),
+  consultantRepTitle: z.string().optional().default(''),
+  warrantyStatus: z.enum(['DALAM_PEMELIHARAAN', 'MEMENUHI_SYARAT_FHO', 'TERLAMBAT_PERBAIKAN']).optional().default('DALAM_PEMELIHARAAN'),
+  closureNotes: z.string().optional().default(''),
+});
+
+export const MonevProjectSchema = z.object({
   id: z.string().min(1),
   schemaVersion: z.number().default(3),
   updatedAt: z.string(),
@@ -214,7 +247,10 @@ export const PHOProjectSchema = z.object({
     packageName: '',
     contractNumber: '',
     contractDate: '',
+    mc0Number: '',
+    mc0Date: '',
     mc100Number: '',
+    mc100Date: '',
     contractValueIdr: 0,
     fiscalYear: '',
     irrigationAreaOrRiverName: '',
@@ -243,13 +279,28 @@ export const PHOProjectSchema = z.object({
   progressPeriods: z.array(ProgressPeriodSchema).optional().default([]),
   ncrItems: z.array(NCRItemSchema).optional().default([]),
   maintenanceRecords: z.array(MaintenanceRecordSchema).optional().default([]),
+  fhoInfo: FHOInfoSchema.optional().default({
+    baFhoNumber: '',
+    baFhoDate: '',
+    inspectionDate: '',
+    leadInspectorName: '',
+    leadInspectorNip: '',
+    contractorRepName: '',
+    contractorRepTitle: '',
+    consultantRepName: '',
+    consultantRepTitle: '',
+    warrantyStatus: 'DALAM_PEMELIHARAAN',
+    closureNotes: '',
+  }),
 });
 
-export function validateProjectSchema(raw: unknown): PHOProject {
-  const parsed = PHOProjectSchema.safeParse(raw);
+export const PHOProjectSchema = MonevProjectSchema;
+
+export function validateProjectSchema(raw: unknown): MonevProject {
+  const parsed = MonevProjectSchema.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ');
     throw new Error(`Validasi skema proyek gagal: ${issues}`);
   }
-  return parsed.data as unknown as PHOProject;
+  return parsed.data as unknown as MonevProject;
 }

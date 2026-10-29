@@ -2,7 +2,7 @@ import type {
   GeometrySubType,
   InspectionSegment,
   MeasurementSample,
-  PHOProject,
+  MonevProject,
   PositionSide,
   VisualChecklistItem,
   DimensionSet,
@@ -54,12 +54,17 @@ export const newSegment = (opts: {
   subType: GeometrySubType;
   positionSide?: PositionSide;
   length?: number;
+  mc0?: DimensionSet;
+  mc0VolumeContractM3?: number | null;
   mc100?: DimensionSet;
-  dataSource?: InspectionSegment['dataSource'];
   mc100VolumeContractM3?: number | null;
+  dataSource?: InspectionSegment['dataSource'];
   tol: number;
 }): InspectionSegment => {
   const st = SUBTYPES[opts.subType];
+  const mc100Dims = { ...defaultDims(opts.subType), ...(opts.mc100 ?? {}) };
+  const mc0Dims = opts.mc0 ? { ...defaultDims(opts.subType), ...opts.mc0 } : { ...mc100Dims };
+
   const seg: InspectionSegment = {
     id: uid('sta'),
     staCode: opts.staCode,
@@ -69,10 +74,24 @@ export const newSegment = (opts: {
     positionSide: opts.positionSide ?? 'KIRI_KANAN',
     segmentLengthMeter: opts.length ?? 0,
     dataSource: opts.dataSource ?? 'INPUT_LAPANGAN',
-    mc100Dimensions: { ...defaultDims(opts.subType), ...(opts.mc100 ?? {}) },
+
+    // Pilar 1: MC-0
+    mc0Dimensions: mc0Dims,
+    mc0VolumeContractM3: opts.mc0VolumeContractM3 ?? null,
+    mc0CrossSectionAreaM2: 0,
+    mc0VolumeM3: 0,
+
+    // Pilar 2: MC-100
+    mc100Dimensions: mc100Dims,
     mc100VolumeContractM3: opts.mc100VolumeContractM3 ?? null,
     mc100CrossSectionAreaM2: 0,
     mc100VolumeM3: 0,
+
+    // CCO
+    volumeCcoVarianceM3: 0,
+    volumeCcoVariancePercent: 0,
+
+    // Pilar 3: Aktual
     samples: [newSample(0, 0, defaultDims(opts.subType))],
     averagedActualDimensions: {},
     actualCrossSectionAreaM2: 0,
@@ -146,7 +165,7 @@ export const newMilestone = (label: string, plannedDate: string, targetPercent: 
   isCompleted: false,
 });
 
-export const blankProject = (): PHOProject => ({
+export const blankProject = (): MonevProject => ({
   id: uid('prj'),
   schemaVersion: CURRENT_SCHEMA_VERSION,
   updatedAt: new Date().toISOString(),
@@ -155,7 +174,10 @@ export const blankProject = (): PHOProject => ({
     packageName: '',
     contractNumber: '',
     contractDate: '',
+    mc0Number: '',
+    mc0Date: '',
     mc100Number: '',
+    mc100Date: '',
     contractValueIdr: 0,
     fiscalYear: String(new Date().getFullYear()),
     irrigationAreaOrRiverName: '',
@@ -192,4 +214,17 @@ export const blankProject = (): PHOProject => ({
   progressPeriods: [],
   ncrItems: [],
   maintenanceRecords: [],
+  fhoInfo: {
+    baFhoNumber: '',
+    baFhoDate: '',
+    inspectionDate: '',
+    leadInspectorName: '',
+    leadInspectorNip: '',
+    contractorRepName: '',
+    contractorRepTitle: 'Direktur',
+    consultantRepName: '',
+    consultantRepTitle: 'Team Leader',
+    warrantyStatus: 'DALAM_PEMELIHARAAN',
+    closureNotes: '',
+  },
 });

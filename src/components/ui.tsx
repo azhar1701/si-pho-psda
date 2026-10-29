@@ -189,7 +189,7 @@ export function Card({
   );
 }
 
-export function Badge({ tone, children, wrap }: { tone: 'green' | 'red' | 'amber' | 'slate' | 'blue' | 'orange'; children: ReactNode; wrap?: boolean }) {
+export function Badge({ tone, children, wrap }: { tone: 'green' | 'red' | 'amber' | 'slate' | 'blue' | 'orange' | 'purple'; children: ReactNode; wrap?: boolean }) {
   const t = {
     green: 'bg-emerald-50 text-emerald-800 border border-emerald-300/80',
     red: 'bg-rose-50 text-rose-800 border border-rose-300/80',
@@ -197,6 +197,7 @@ export function Badge({ tone, children, wrap }: { tone: 'green' | 'red' | 'amber
     orange: 'bg-orange-50 text-orange-900 border border-orange-300/80',
     slate: 'bg-slate-100 text-slate-700 border border-slate-200',
     blue: 'bg-sky-50 text-sky-800 border border-sky-300/80',
+    purple: 'bg-purple-50 text-purple-800 border border-purple-300/80',
   }[tone];
 
   return (

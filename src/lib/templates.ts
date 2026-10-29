@@ -1,4 +1,4 @@
-import type { DimKey, DimensionSet, GeometrySubType, Severity, StructureCategory } from '../types';
+import type { DimKey, DimensionSet, GeometrySubType, PositionSide, Severity, StructureCategory } from '../types';
 
 export interface FieldDef {
   key: DimKey;
@@ -228,6 +228,11 @@ export const POSITION_LABEL = {
   KIRI_KANAN: 'Kiri - Kanan',
   AS_TENGAH: 'As / Tengah',
 } as const;
+
+export const SIDE_OPTIONS = (Object.keys(POSITION_LABEL) as PositionSide[]).map((k) => ({
+  value: k,
+  label: POSITION_LABEL[k],
+}));
 
 export interface DefectPreset {
   code: string;

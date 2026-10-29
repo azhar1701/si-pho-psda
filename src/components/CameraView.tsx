@@ -23,20 +23,19 @@ import {
 import type { DefectItem, PHOProject, PositionSide, Severity } from '../types';
 import type { Updater } from '../App';
 import { Badge, Btn, Card, NumField, SelectField, TextField, cx } from './ui';
-import { CATEGORIES, POSITION_LABEL, SUBTYPES, presetsFor } from '../lib/templates';
+import { CATEGORIES, POSITION_LABEL, SIDE_OPTIONS, SUBTYPES, presetsFor } from '../lib/templates';
 import { applyCrackFilter, burnWatermark, filterDataUrl, normalizeUpload, sourceToCanvas, JPEG_QUALITY } from '../lib/imaging';
 import { analyzeDefect, GEMINI_MODEL, resolveApiKey } from '../lib/gemini';
 import { buildWatermarkInfo, dimensionSummary, gpsText } from '../lib/inspection';
 import { stempelWaktu, uid } from '../lib/format';
 import { savePhoto } from '../lib/storage';
-import { SIDE_OPTIONS } from './SegmentsView';
 import { SeverityBadge } from './StatusBadge';
 import { PhotoThumbnail } from './PhotoThumbnail';
 import { ConfirmDialog } from './ConfirmDialog';
 
-export type RapidTag = 'HULU' | 'HILIR' | 'PENAMPANG' | 'CACAT_MUTU';
+type RapidTag = 'HULU' | 'HILIR' | 'PENAMPANG' | 'CACAT_MUTU';
 
-export interface RapidTagDef {
+interface RapidTagDef {
   tag: RapidTag;
   label: string;
   shortLabel: string;
@@ -49,7 +48,7 @@ export interface RapidTagDef {
   activeClass: string;
 }
 
-export const RAPID_TAGS: RapidTagDef[] = [
+const RAPID_TAGS: RapidTagDef[] = [
   {
     tag: 'HULU',
     label: 'Tampak Hulu',

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { AlertTriangle, Camera, CheckSquare, Copy, Plus, Ruler, Square, Trash2, Calculator, Image as ImageIcon, NotebookPen } from 'lucide-react';
-import type { ChecklistStatus, DimKey, DimensionSet, InspectionSegment, MeasurementSample, PHOProject, StructureCategory, GeometrySubType } from '../types';
+import { AlertTriangle, Camera, CheckSquare, Copy, Plus, Ruler, Square, Trash2, Calculator, Image as ImageIcon, NotebookPen, Layers } from 'lucide-react';
+import type { ChecklistStatus, DimKey, DimensionSet, InspectionSegment, MeasurementSample, MonevProject, StructureCategory, GeometrySubType } from '../types';
 import type { Updater } from '../App';
 import { Badge, Btn, Card, NumField, SelectField, TextField, cx } from './ui';
 import { SeverityBadge, StatusBadge } from './StatusBadge';
@@ -9,12 +9,12 @@ import { deviation, isDeficit, sampleArea } from '../lib/calc';
 import { fmt, fmtDim, stempelWaktu, uid } from '../lib/format';
 import { buildChecklist, defaultDims, newSample } from '../lib/factory';
 import { gpsText } from '../lib/inspection';
-import { SIDE_OPTIONS } from './SegmentsView';
+import { SIDE_OPTIONS } from '../lib/templates';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PhotoThumbnail } from './PhotoThumbnail';
 
 interface Props {
-  project: PHOProject;
+  project: MonevProject;
   seg: InspectionSegment;
   update: Updater;
   notify: (m: string, t?: 'ok' | 'err') => void;
@@ -37,9 +37,10 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
   }>({
     open: false,
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
+  const [activeMcTab, setActiveMcTab] = useState<'MC100' | 'MC0'>('MC100');
   const [photoFilter, setPhotoFilter] = useState<'ALL' | 'DOK' | 'DEFECT'>('ALL');
 
   const askConfirm = (opts: { title?: string; message: string; isDestructive?: boolean; onConfirm: () => void }) => {
@@ -63,6 +64,7 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
           ...s,
           category: c,
           subType: sub,
+          mc0Dimensions: defaultDims(sub),
           mc100Dimensions: defaultDims(sub),
           samples: [newSample(0, 0, defaultDims(sub))],
           visualChecklist: buildChecklist(c),
@@ -72,7 +74,12 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
   };
 
   const changeSub = (sub: GeometrySubType) =>
-    set((s) => ({ ...s, subType: sub, mc100Dimensions: { ...defaultDims(sub), ...s.mc100Dimensions } }));
+    set((s) => ({
+      ...s,
+      subType: sub,
+      mc0Dimensions: { ...defaultDims(sub), ...(s.mc0Dimensions ?? {}) },
+      mc100Dimensions: { ...defaultDims(sub), ...s.mc100Dimensions },
+    }));
 
   const addSample = () => {
     const last = seg.samples[seg.samples.length - 1];
@@ -92,21 +99,35 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
   const selectedCount = seg.samples.filter((s) => s.isSelected).length;
   const deficitLabels = seg.deficitParams.map((k) => st.fields.find((f) => f.key === k)?.symbol ?? k);
 
+  const mc0Dims = seg.mc0Dimensions ?? seg.mc100Dimensions;
+  const ccoPercent = seg.volumeCcoVariancePercent ?? 0;
+
   return (
     <div className="space-y-3">
-      {/* Identitas */}
+      {/* 1. Identitas Segmen */}
       <Card
         title={<span className="font-mono normal-case">{seg.staCode}</span>}
         icon={<Ruler className="h-5 w-5" />}
         right={<StatusBadge status={seg.evaluationStatus} />}
       >
-        <div className="mb-3 flex flex-wrap gap-2 text-xs">
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
           <Badge tone="slate" wrap>
             {cat.code} · {cat.reference}
           </Badge>
-          <Badge tone={seg.dataSource === 'IMPORT_MC100' ? 'blue' : 'amber'}>
-            {seg.dataSource === 'IMPORT_MC100' ? 'Impor MC-100' : 'Input Lapangan'}
+          <Badge tone={seg.dataSource.startsWith('IMPORT') ? 'blue' : 'amber'}>
+            {seg.dataSource === 'IMPORT_MC_TERPADU'
+              ? 'Impor Terpadu (MC-0 & MC-100)'
+              : seg.dataSource === 'IMPORT_MC0'
+                ? 'Impor MC-0'
+                : seg.dataSource === 'IMPORT_MC100'
+                  ? 'Impor MC-100'
+                  : 'Input Lapangan'}
           </Badge>
+          {Math.abs(ccoPercent) > 0.01 && (
+            <Badge tone={ccoPercent > 0 ? 'purple' : 'amber'}>
+              CCO {ccoPercent > 0 ? '+' : ''}{fmt(ccoPercent, 1)}% ({ccoPercent > 0 ? 'Tambah' : 'Kurang'})
+            </Badge>
+          )}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label="Kode STA / Unit Bangunan" value={seg.staCode} onChange={(v) => set((s) => ({ ...s, staCode: v }))} />
@@ -151,10 +172,10 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
               };
               update((p) => ({ ...p, segments: [...p.segments, copy] }));
               onDuplicated(copy.id);
-              notify('Segmen disalin dengan dimensi MC-100 yang sama.');
+              notify('Segmen disalin dengan dimensi rencana yang sama.');
             }}
           >
-            <Copy className="h-5 w-5" />
+            <Copy className="h-4 w-4" />
             Salin Segmen
           </Btn>
           <Btn
@@ -172,38 +193,103 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
               });
             }}
           >
-            <Trash2 className="h-5 w-5" />
+            <Trash2 className="h-4 w-4" />
             Hapus Segmen
           </Btn>
         </div>
       </Card>
 
-      {/* MC-100 */}
-      <Card title="Dimensi Rencana MC-100" icon={<Calculator className="h-5 w-5" />}>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-          {st.fields.map((f) => (
-            <NumField
-              key={f.key}
-              symbol={f.symbol}
-              label={f.label}
-              unit={f.unit === '-' ? undefined : f.unit}
-              integer={f.kind === 'count'}
-              compact
-              value={seg.mc100Dimensions[f.key]}
-              onChange={(v) => set((s) => ({ ...s, mc100Dimensions: { ...s.mc100Dimensions, [f.key]: v } }))}
-            />
-          ))}
-          <NumField
-            label="Volume kontrak MC-100 (opsional)"
-            unit="m³"
-            compact
-            value={seg.mc100VolumeContractM3 ?? undefined}
-            onChange={(v) => set((s) => ({ ...s, mc100VolumeContractM3: v ?? null }))}
-            hint="Kosong = dihitung dari dimensi"
-          />
-        </div>
+      {/* 2. Dimensi Rencana Rekayasa: MC-0 vs MC-100 */}
+      <Card
+        title="Dimensi Rencana Desain (MC-0 & MC-100)"
+        icon={<Layers className="h-5 w-5 text-indigo-600" />}
+        right={
+          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveMcTab('MC100')}
+              className={cx(
+                'px-2.5 py-1 text-xs font-bold rounded-md transition',
+                activeMcTab === 'MC100' ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900',
+              )}
+            >
+              MC-100 (Akhir)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMcTab('MC0')}
+              className={cx(
+                'px-2.5 py-1 text-xs font-bold rounded-md transition',
+                activeMcTab === 'MC0' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900',
+              )}
+            >
+              MC-0 (Awal)
+            </button>
+          </div>
+        }
+      >
+        {activeMcTab === 'MC100' ? (
+          <div>
+            <div className="mb-2 text-xs font-bold text-sky-900 flex items-center justify-between">
+              <span>Dimensi Kaji Ulang Akhir — Target As-Built untuk PHO (MC-100)</span>
+              <span className="font-mono text-[11px] text-slate-500">Vol: {fmt(seg.mc100VolumeM3, 2)} m³</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              {st.fields.map((f) => (
+                <NumField
+                  key={f.key}
+                  symbol={f.symbol}
+                  label={f.label}
+                  unit={f.unit === '-' ? undefined : f.unit}
+                  integer={f.kind === 'count'}
+                  compact
+                  value={seg.mc100Dimensions[f.key]}
+                  onChange={(v) => set((s) => ({ ...s, mc100Dimensions: { ...s.mc100Dimensions, [f.key]: v } }))}
+                />
+              ))}
+              <NumField
+                label="Volume kontrak MC-100 (opsional)"
+                unit="m³"
+                compact
+                value={seg.mc100VolumeContractM3 ?? undefined}
+                onChange={(v) => set((s) => ({ ...s, mc100VolumeContractM3: v ?? null }))}
+                hint="Kosong = dihitung dari dimensi"
+              />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="mb-2 text-xs font-bold text-emerald-900 flex items-center justify-between">
+              <span>Dimensi Rekayasa Lapangan Awal — Desain MC-0 (Baseline)</span>
+              <span className="font-mono text-[11px] text-slate-500">Vol: {fmt(seg.mc0VolumeM3, 2)} m³</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              {st.fields.map((f) => (
+                <NumField
+                  key={f.key}
+                  symbol={f.symbol}
+                  label={f.label}
+                  unit={f.unit === '-' ? undefined : f.unit}
+                  integer={f.kind === 'count'}
+                  compact
+                  value={mc0Dims[f.key]}
+                  onChange={(v) => set((s) => ({ ...s, mc0Dimensions: { ...mc0Dims, [f.key]: v } }))}
+                />
+              ))}
+              <NumField
+                label="Volume kontrak MC-0 (opsional)"
+                unit="m³"
+                compact
+                value={seg.mc0VolumeContractM3 ?? undefined}
+                onChange={(v) => set((s) => ({ ...s, mc0VolumeContractM3: v ?? null }))}
+                hint="Kosong = dihitung dari dimensi"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs font-semibold text-slate-700">
-          <div className="mb-1 font-extrabold uppercase text-slate-900">Rumus — {st.label}</div>
+          <div className="mb-1 font-extrabold uppercase text-slate-900">Rumus Penampang — {st.label}</div>
           <div className="grid gap-0.5 font-mono sm:grid-cols-2">
             {st.formulaText.map((t) => (
               <span key={t}>{t}</span>
@@ -212,7 +298,7 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
         </div>
       </Card>
 
-      {/* Banner Kurang Dimensi — Premium Industrial Safety Panel */}
+      {/* 3. Banner Kurang Dimensi */}
       {seg.hasDimensionDeficit && (
         <div className="relative overflow-hidden rounded-2xl border border-amber-300/80 bg-gradient-to-r from-amber-500/10 via-amber-50/60 to-rose-50/40 p-4 sm:p-5 shadow-[0_4px_20px_rgba(245,158,11,0.08)]">
           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-amber-500 to-red-600" />
@@ -231,7 +317,7 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
                   </span>
                 </div>
                 <p className="text-xs font-semibold leading-relaxed text-slate-700">
-                  Parameter deviasi: <strong className="text-red-700">{deficitLabels.join(', ')}</strong> · Toleransi deviasi izin <span className="num font-bold">τ = {fmt(tol, 3)} m</span>
+                  Parameter deviasi: <strong className="text-red-700">{deficitLabels.join(', ')}</strong> · Toleransi izin <span className="num font-bold">τ = {fmt(tol, 3)} m</span>
                 </p>
                 <p className="text-xs font-bold text-slate-800">
                   {seg.averageDeficitParams.length ? (
@@ -241,7 +327,7 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
                     </span>
                   ) : (
                     <span className="text-emerald-700">
-                      ✓ Nilai rerata terpilih telah memenuhi batas toleransi
+                      ✓ Nilai rerata terpilih telah memenuhi batas toleransi teknis
                     </span>
                   )}
                 </p>
@@ -252,15 +338,15 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
               className="w-full sm:w-auto shrink-0 shadow-md hover:shadow-lg font-black text-sm"
               onClick={addSample}
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-4 w-4" />
               Tambah Titik Sampel (Uji Petik)
             </Btn>
           </div>
         </div>
       )}
 
-      {/* Sampel */}
-      <Card title={`Titik Sampel Ukur Aktual (${selectedCount}/${seg.samples.length} direrata)`} icon={<Ruler className="h-5 w-5" />}>
+      {/* 4. Titik Sampel Ukur Aktual */}
+      <Card title={`Titik Sampel Ukur Lapangan (${selectedCount}/${seg.samples.length} direrata)`} icon={<Ruler className="h-5 w-5" />}>
         <div className="space-y-3">
           {seg.samples.map((smp) => (
             <SampleCard
@@ -272,15 +358,15 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
               onDelete={
                 seg.samples.length > 1
                   ? () => {
-                      askConfirm({
-                        title: 'Hapus Titik Sampel',
-                        message: `Hapus titik ukur "${smp.sampleLabel}"?`,
-                        isDestructive: true,
-                        onConfirm: () => {
-                          set((s) => ({ ...s, samples: s.samples.filter((x) => x.id !== smp.id) }));
-                        },
-                      });
-                    }
+                    askConfirm({
+                      title: 'Hapus Titik Sampel',
+                      message: `Hapus titik ukur "${smp.sampleLabel}"?`,
+                      isDestructive: true,
+                      onConfirm: () => {
+                        set((s) => ({ ...s, samples: s.samples.filter((x) => x.id !== smp.id) }));
+                      },
+                    });
+                  }
                   : undefined
               }
             />
@@ -288,37 +374,40 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
         </div>
         {!seg.hasDimensionDeficit && (
           <Btn className="mt-3 w-full" onClick={addSample}>
-            <Plus className="h-5 w-5" />
+            <Plus className="h-4 w-4" />
             Tambah Titik Sampel Ukur (Uji Petik)
           </Btn>
         )}
       </Card>
 
-      {/* Hasil */}
-      <Card title="Hasil Rerata Terpilih vs MC-100" icon={<Calculator className="h-5 w-5" />}>
+      {/* 5. Komparator 3-Pilar: MC-0 vs MC-100 vs Rerata Aktual */}
+      <Card title="Hasil Komparasi 3-Pilar: MC-0 vs MC-100 vs Rerata Aktual" icon={<Calculator className="h-5 w-5" />}>
         <div className="overflow-x-auto">
-          <table className="num w-full min-w-[420px] text-sm">
+          <table className="num w-full min-w-[540px] text-sm">
             <thead>
               <tr className="border-b-2 border-slate-900 text-left text-xs uppercase text-slate-600">
                 <th className="py-2">Parameter</th>
-                <th className="text-right">MC-100</th>
+                <th className="text-right">MC-0 (Awal)</th>
+                <th className="text-right">MC-100 (Akhir)</th>
                 <th className="text-right">Rerata Aktual</th>
-                <th className="text-right">Δ</th>
+                <th className="text-right">Δ vs MC-100</th>
                 <th className="text-right">Status</th>
               </tr>
             </thead>
             <tbody>
               {st.fields.map((f) => {
+                const m0 = mc0Dims[f.key];
+                const m100 = seg.mc100Dimensions[f.key];
                 const a = seg.averagedActualDimensions[f.key];
-                const m = seg.mc100Dimensions[f.key];
-                const d = deviation(a, m);
-                const def = f.kind !== 'ratio' && isDeficit(a, m, f.kind === 'count' ? 0 : tol);
+                const d = deviation(a, m100);
+                const def = f.kind !== 'ratio' && isDeficit(a, m100, f.kind === 'count' ? 0 : tol);
                 return (
                   <tr key={f.key} className="border-b border-slate-200">
                     <td className="py-2 font-bold text-slate-800">
                       {f.symbol} · {f.label}
                     </td>
-                    <td className="text-right text-slate-600">{fmtDim(m, f.kind)}</td>
+                    <td className="text-right text-slate-500">{fmtDim(m0, f.kind)}</td>
+                    <td className="text-right font-semibold text-slate-700">{fmtDim(m100, f.kind)}</td>
                     <td className="text-right font-extrabold text-slate-900">{fmtDim(a, f.kind)}</td>
                     <td className={cx('text-right font-bold', d === undefined ? 'text-slate-400' : d < 0 ? 'text-red-700' : 'text-emerald-700')}>
                       {d === undefined ? '-' : `${d > 0 ? '+' : ''}${fmt(d, f.kind === 'count' ? 0 : 3)}`}
@@ -340,27 +429,33 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
             </tbody>
           </table>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-900 p-3 text-white sm:grid-cols-4">
+
+        {/* 4 Pilar Metrik Volume */}
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-3 text-white sm:grid-cols-4">
           <div>
-            <div className="text-[11px] font-bold text-slate-400">Luas MC-100</div>
-            <div className="text-lg font-black">{fmt(seg.mc100CrossSectionAreaM2, 3)} m²</div>
+            <div className="text-[11px] font-bold text-slate-400">Vol MC-0 (Awal)</div>
+            <div className="text-base font-black text-emerald-400">{fmt(seg.mc0VolumeM3, 2)} m³</div>
           </div>
           <div>
-            <div className="text-[11px] font-bold text-slate-400">Luas Rerata</div>
-            <div className="text-lg font-black">{fmt(seg.actualCrossSectionAreaM2, 3)} m²</div>
+            <div className="text-[11px] font-bold text-slate-400">Vol MC-100 (Akhir)</div>
+            <div className="text-base font-black text-sky-400">{fmt(seg.mc100VolumeM3, 2)} m³</div>
           </div>
           <div>
-            <div className="text-[11px] font-bold text-slate-400">Vol MC-100</div>
-            <div className="text-lg font-black">{fmt(seg.mc100VolumeM3, 2)} m³</div>
+            <div className="text-[11px] font-bold text-slate-400">Variasi CCO (Desain)</div>
+            <div className="text-base font-black text-purple-400">
+              {seg.volumeCcoVarianceM3 !== undefined ? `${seg.volumeCcoVarianceM3 > 0 ? '+' : ''}${fmt(seg.volumeCcoVarianceM3, 2)} m³` : '-'}
+            </div>
+            <div className="text-[10px] text-slate-400">({fmt(ccoPercent, 1)}%)</div>
           </div>
           <div>
-            <div className="text-[11px] font-bold text-slate-400">Vol Rerata</div>
-            <div className="text-lg font-black">{fmt(seg.actualVolumeM3, 2)} m³</div>
+            <div className="text-[11px] font-bold text-slate-400">Vol Aktual Lapangan</div>
+            <div className="text-base font-black text-amber-400">{fmt(seg.actualVolumeM3, 2)} m³</div>
+            <div className="text-[10px] text-slate-400">Capaian: {fmt(seg.volumeAchievementPercent, 1)}%</div>
           </div>
         </div>
       </Card>
 
-      {/* Visual checklist */}
+      {/* 6. Daftar Simak Visual Mutu */}
       <Card title={`Daftar Simak Visual Mutu (${seg.visualChecklist.filter((x) => x.status === 'SESUAI').length}/${seg.visualChecklist.length} Sesuai)`}>
         <div className="divide-y divide-slate-200">
           {seg.visualChecklist.map((c) => (
@@ -386,8 +481,8 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
                         ? stt === 'SESUAI'
                           ? 'bg-emerald-700 text-white'
                           : stt === 'TIDAK_SESUAI'
-                          ? 'bg-red-700 text-white'
-                          : 'bg-slate-700 text-white'
+                            ? 'bg-red-700 text-white'
+                            : 'bg-slate-700 text-white'
                         : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
                     )}
                   >
@@ -400,8 +495,7 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
         </div>
       </Card>
 
-      {/* Temuan */}
-      {/* Temuan Cacat Mutu & Dokumentasi */}
+      {/* 7. Temuan Cacat Mutu & Dokumentasi */}
       {(() => {
         const docPhotos = seg.defects.filter((d) => d.entryType === 'DOKUMENTASI');
         const defectPhotos = seg.defects.filter((d) => d.entryType === 'CACAT_MUTU');
@@ -414,7 +508,7 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
             icon={<ImageIcon className="h-5 w-5 text-amber-500" />}
             right={
               <Btn variant="primary" className="min-h-[44px]" onClick={openCamera}>
-                <Camera className="h-5 w-5" />
+                <Camera className="h-4 w-4" />
                 Buka Kamera
               </Btn>
             }
@@ -468,8 +562,8 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
                 {photoFilter === 'ALL'
                   ? 'Belum ada foto dokumentasi atau temuan pada segmen ini. Tekan tombol "Buka Kamera" untuk mengambil foto.'
                   : photoFilter === 'DOK'
-                  ? 'Belum ada foto dokumentasi fisik (Hulu/Hilir/Penampang).'
-                  : 'Tidak ada temuan cacat mutu pada segmen ini.'}
+                    ? 'Belum ada foto dokumentasi fisik (Hulu/Hilir/Penampang).'
+                    : 'Tidak ada temuan cacat mutu pada segmen ini.'}
               </div>
             ) : (
               <ul className="space-y-3 pt-1">
@@ -531,9 +625,10 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
         );
       })()}
 
-      <Card title="Catatan Pemeriksa" icon={<NotebookPen className="h-5 w-5" />}>
+      {/* 8. Catatan Pemeriksa */}
+      <Card title="Catatan Pemeriksa Lapangan" icon={<NotebookPen className="h-5 w-5" />}>
         <TextField
-          label="Catatan teknis segmen (dicetak pada Lampiran I)"
+          label="Catatan teknis segmen (dicetak pada Lampiran I BA PHO)"
           multiline
           value={seg.inspectorNotes ?? ''}
           onChange={(v) => set((s) => ({ ...s, inspectorNotes: v }))}
@@ -643,9 +738,8 @@ function SampleCard({
               hint={
                 m === undefined
                   ? 'MC-100: -'
-                  : `MC-100 ${fmtDim(m, f.kind)}${d !== undefined ? ` · Δ ${d > 0 ? '+' : ''}${fmt(d, f.kind === 'count' ? 0 : 3)}` : ''}${
-                      def ? ' KURANG' : ''
-                    }`
+                  : `MC-100 ${fmtDim(m, f.kind)}${d !== undefined ? ` · Δ ${d > 0 ? '+' : ''}${fmt(d, f.kind === 'count' ? 0 : 3)}` : ''}${def ? ' KURANG' : ''
+                  }`
               }
               value={a}
               onChange={(v) => setDim(f.key, v)}

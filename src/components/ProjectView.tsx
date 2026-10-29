@@ -13,11 +13,13 @@ import {
   FilePlus2,
   Image as ImageIcon,
   Trash2,
+  CheckCircle2,
+  Layers,
 } from 'lucide-react';
-import type { ConclusionMode, PHOProject } from '../types';
+import type { ConclusionMode, MonevProject } from '../types';
 import type { Updater } from '../App';
 import { Btn, Card, NumField, SelectField, TextField, cx } from './ui';
-import { buildMc100Template, importMc100 } from '../lib/csv';
+import { buildMc0Template, buildMc100Template, buildMcTerpaduTemplate, importCsv } from '../lib/csv';
 import { downloadBlob, getStoredApiKey, normalizeProject, safeFileName, setStoredApiKey } from '../lib/storage';
 import { buildDemoProject } from '../lib/demo';
 import { blankProject } from '../lib/factory';
@@ -26,10 +28,10 @@ import { resolveApiKey } from '../lib/gemini';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface Props {
-  project: PHOProject;
+  project: MonevProject;
   update: Updater;
   updateMeta?: Updater;
-  replaceProject: (p: PHOProject) => void;
+  replaceProject: (p: MonevProject) => void;
   notify: (m: string, t?: 'ok' | 'err') => void;
 }
 
@@ -57,38 +59,42 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
     setConfirmState({ open: true, ...opts });
   };
 
-  const setC = <K extends keyof PHOProject['contractInfo']>(k: K, v: PHOProject['contractInfo'][K]) =>
+  const setC = <K extends keyof MonevProject['contractInfo']>(k: K, v: MonevProject['contractInfo'][K]) =>
     metaUp((x) => ({ ...x, contractInfo: { ...x.contractInfo, [k]: v } }));
-  const setT = <K extends keyof PHOProject['inspectionTeam']>(k: K, v: PHOProject['inspectionTeam'][K]) =>
+  const setT = <K extends keyof MonevProject['inspectionTeam']>(k: K, v: MonevProject['inspectionTeam'][K]) =>
     metaUp((x) => ({ ...x, inspectionTeam: { ...x.inspectionTeam, [k]: v } }));
-  const setA = <K extends keyof PHOProject['agencyHeader']>(k: K, v: PHOProject['agencyHeader'][K]) =>
+  const setA = <K extends keyof MonevProject['agencyHeader']>(k: K, v: MonevProject['agencyHeader'][K]) =>
     metaUp((x) => ({ ...x, agencyHeader: { ...x.agencyHeader, [k]: v } }));
-  const setL = <K extends keyof NonNullable<PHOProject['timeline']>>(k: K, v: NonNullable<PHOProject['timeline']>[K]) =>
+  const setL = <K extends keyof NonNullable<MonevProject['timeline']>>(k: K, v: NonNullable<MonevProject['timeline']>[K]) =>
     metaUp((x) => ({ ...x, timeline: { ...x.timeline, [k]: v } }));
+  const setF = <K extends keyof NonNullable<MonevProject['fhoInfo']>>(k: K, v: NonNullable<MonevProject['fhoInfo']>[K]) =>
+    metaUp((x) => ({ ...x, fhoInfo: { ...x.fhoInfo, [k]: v } }));
 
   const onCsv = async (f: File) => {
     const text = await f.text();
-    const res = importMc100(text, p.contractInfo.dimensionToleranceMeter);
+    const res = importCsv(text, p.contractInfo.dimensionToleranceMeter);
     if (!res.segments.length) {
       setImportLog(res.errors);
-      notify('Impor MC-100 gagal: tidak ada baris valid.', 'err');
+      notify('Impor CSV gagal: tidak ada baris valid.', 'err');
       return;
     }
     let added = 0,
-      updated = 0;
+      updatedCount = 0;
     const segs = [...p.segments];
     for (const s of res.segments) {
       const i = segs.findIndex((e) => e.staCode.trim().toUpperCase() === s.staCode.trim().toUpperCase() && e.subType === s.subType);
       if (i >= 0) {
-        updated++;
+        updatedCount++;
         segs[i] = {
           ...segs[i],
           structureName: s.structureName || segs[i].structureName,
           positionSide: s.positionSide,
           segmentLengthMeter: s.segmentLengthMeter,
-          mc100Dimensions: s.mc100Dimensions,
-          mc100VolumeContractM3: s.mc100VolumeContractM3,
-          dataSource: 'IMPORT_MC100',
+          mc0Dimensions: res.mode === 'MC0' || res.mode === 'TERPADU' ? (s.mc0Dimensions ?? segs[i].mc0Dimensions) : segs[i].mc0Dimensions,
+          mc0VolumeContractM3: res.mode === 'MC0' || res.mode === 'TERPADU' ? s.mc0VolumeContractM3 : segs[i].mc0VolumeContractM3,
+          mc100Dimensions: res.mode === 'MC100' || res.mode === 'TERPADU' ? (s.mc100Dimensions ?? segs[i].mc100Dimensions) : segs[i].mc100Dimensions,
+          mc100VolumeContractM3: res.mode === 'MC100' || res.mode === 'TERPADU' ? s.mc100VolumeContractM3 : segs[i].mc100VolumeContractM3,
+          dataSource: s.dataSource,
         };
       } else {
         added++;
@@ -96,11 +102,12 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
       }
     }
     update((x) => ({ ...x, segments: segs }));
+    const modeLabel = res.mode === 'TERPADU' ? 'Terpadu (MC-0 & MC-100)' : res.mode === 'MC0' ? 'MC-0' : 'MC-100';
     setImportLog([
-      `${res.segments.length} baris MC-100 diproses: ${added} segmen baru ditambahkan, ${updated} segmen diperbarui (data ukur lapangan dipertahankan).`,
+      `${res.segments.length} baris ${modeLabel} diproses: ${added} segmen baru ditambahkan, ${updatedCount} segmen diperbarui (data ukur lapangan dipertahankan).`,
       ...res.errors,
     ]);
-    notify('Impor MC-100 selesai.');
+    notify(`Impor data ${modeLabel} selesai.`);
   };
 
   const onJson = async (f: File) => {
@@ -133,37 +140,45 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
   const exportJson = () => {
     downloadBlob(
       JSON.stringify(p, null, 1),
-      `SIPHO_${safeFileName(p.contractInfo.packageName)}_${p.inspectionTeam.inspectionDate}.json`,
+      `SIMONEV_${safeFileName(p.contractInfo.packageName)}_${new Date().toISOString().slice(0, 10)}.json`,
       'application/json',
     );
     notify('Berkas cadangan proyek (.json) diunduh.');
   };
 
-  const sides = [
-    { value: 'OTOMATIS', label: 'Otomatis (berdasarkan hasil pemeriksaan)' },
-    { value: 'DAPAT_DITERIMA', label: 'Dapat diterima untuk PHO' },
-    { value: 'DITERIMA_DENGAN_CATATAN', label: 'Dapat diterima dengan catatan perbaikan (Defect List)' },
-    { value: 'BELUM_DAPAT_DITERIMA', label: 'Belum dapat diterima (pemeriksaan ulang)' },
-  ] as { value: ConclusionMode; label: string }[];
+  const sides: { value: ConclusionMode; label: string }[] = [
+    { value: 'OTOMATIS', label: 'Evaluasi Otomatis (Mengacu Toleransi & Daftar Cacat)' },
+    { value: 'DAPAT_DITERIMA', label: 'Dapat Diterima untuk PHO (Sesuai Rencana)' },
+    { value: 'DITERIMA_DENGAN_CATATAN', label: 'Diterima dengan Catatan Perbaikan (Defect List)' },
+    { value: 'BELUM_DAPAT_DITERIMA', label: 'Belum Dapat Diterima (Pekerjaan Belum Tuntas / Cacat Kritis)' },
+  ];
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      {/* 1. Cadangan & Pertukaran Data */}
-      <Card title="Cadangan & Pertukaran Data" icon={<Database className="h-5 w-5 text-indigo-600" />}>
+    <div className="mx-auto max-w-4xl space-y-4">
+      {/* 1. Manajemen Berkas & Impor MC-0 / MC-100 */}
+      <Card title="Manajemen Data & Impor Geometri (MC-0 & MC-100)" icon={<Database className="h-5 w-5 text-indigo-600" />}>
         <p className="text-xs text-slate-500">
-          Ekspor-impor daftar STA, dimensi MC-100, dan berkas cadangan JSON lengkap untuk pengarsipan proyek.
+          Unduh template CSV untuk rekayasa lapangan (MC-0), opname akhir (MC-100), atau impor sekaligus berkas CSV terpadu.
         </p>
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          <Btn onClick={() => downloadBlob(buildMc100Template(), 'Template_MC100_SIPHO_PSDA.csv', 'text/csv;charset=utf-8')}>
-            <Download className="h-4 w-4 text-slate-500" />
-            <span>Unduh Template CSV</span>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Btn onClick={() => downloadBlob(buildMc0Template(), 'Template_MC0_SIMONEV_PSDA.csv', 'text/csv;charset=utf-8')}>
+            <Download className="h-4 w-4 text-emerald-600" />
+            <span>Unduh Template MC-0</span>
           </Btn>
-          <Btn variant="primary" onClick={() => csvRef.current?.click()}>
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Impor CSV MC-100</span>
+          <Btn onClick={() => downloadBlob(buildMc100Template(), 'Template_MC100_SIMONEV_PSDA.csv', 'text/csv;charset=utf-8')}>
+            <Download className="h-4 w-4 text-sky-600" />
+            <span>Unduh Template MC-100</span>
           </Btn>
-          <Btn onClick={exportJson}>
-            <FileJson className="h-4 w-4 text-emerald-600" />
+          <Btn onClick={() => downloadBlob(buildMcTerpaduTemplate(), 'Template_MC_Terpadu_SIMONEV_PSDA.csv', 'text/csv;charset=utf-8')}>
+            <Download className="h-4 w-4 text-purple-600" />
+            <span>Unduh Template Terpadu</span>
+          </Btn>
+          <Btn onClick={() => csvRef.current?.click()} variant="warning">
+            <Upload className="h-4 w-4" />
+            <span>Impor Berkas CSV (MC-0 / MC-100)</span>
+          </Btn>
+          <Btn onClick={exportJson} variant="primary">
+            <FileJson className="h-4 w-4 text-amber-400" />
             <span>Simpan Cadangan (.JSON)</span>
           </Btn>
           <Btn onClick={() => jsonRef.current?.click()}>
@@ -194,7 +209,7 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
           }}
         />
         <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
-          <strong className="font-semibold text-slate-800">Catatan Sinkronisasi:</strong> Impor MC-100 menggabungkan STA secara cerdas tanpa menghapus hasil ukur lapangan yang telah direkam.
+          <strong className="font-semibold text-slate-800">Sinkronisasi Cerdas:</strong> Sistem otomatis mendeteksi kolom MC-0 atau MC-100 dan menggabungkannya tanpa menghapus data ukur aktual lapangan.
         </div>
         {importLog.length > 0 && (
           <ul className="space-y-1 rounded-xl border border-slate-300 bg-slate-50 p-3 text-xs font-semibold text-slate-800">
@@ -208,13 +223,13 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
       {/* 2. Inisialisasi & Template Proyek */}
       <Card title="Inisialisasi & Template Proyek" icon={<FilePlus2 className="h-5 w-5 text-amber-600" />}>
         <p className="text-xs text-slate-500">
-          Muat proyek percontohan untuk pelatihan inspeksi atau reset data ke proyek baru yang bersih.
+          Muat proyek percontohan untuk pelatihan monitoring evaluasi atau reset data ke proyek baru yang bersih.
         </p>
         <div className="grid gap-2.5">
           <div className="flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <div className="text-xs font-bold text-slate-900">Proyek Contoh D.I. Lakbok Utara</div>
-              <div className="text-[11px] text-slate-500">Dataset lengkap (11 segmen, foto drone & DSLR, foto cacat mutu, hasil ukur).</div>
+              <div className="text-xs font-bold text-slate-900">Proyek Contoh D.I. Lakbok Utara (MONEV Penuh)</div>
+              <div className="text-[11px] text-slate-500">Dataset lengkap (4 segmen terpadu MC-0 vs MC-100, 10 minggu Kurva-S, NCR, log pemeliharaan, foto ber-watermark).</div>
             </div>
             <Btn
               onClick={() => {
@@ -327,14 +342,49 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
         </div>
       </Card>
 
-      <Card title="Data Kontrak & MC-100" icon={<FileSpreadsheet className="h-5 w-5" />}>
+      {/* 4. Data Kontrak & Administrasi MC-0 / MC-100 */}
+      <Card title="Data Kontrak & Administrasi (MC-0 & MC-100)" icon={<FileSpreadsheet className="h-5 w-5" />}>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <TextField label="Nama Paket Pekerjaan" value={p.contractInfo.packageName} onChange={(v) => setC('packageName', v)} />
           </div>
           <TextField label="Nomor Kontrak" value={p.contractInfo.contractNumber} onChange={(v) => setC('contractNumber', v)} />
           <TextField label="Tanggal Kontrak" type="date" value={p.contractInfo.contractDate} onChange={(v) => setC('contractDate', v)} />
-          <TextField label="Nomor Berita Acara MC-100" value={p.contractInfo.mc100Number} onChange={(v) => setC('mc100Number', v)} />
+
+          {/* Sub-administrasi MC-0 & MC-100 */}
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 sm:col-span-2">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-emerald-900">
+              <Layers className="h-4 w-4 text-emerald-600" />
+              <span>Administrasi Rekayasa Lapangan (MC-0) &amp; Opname Akhir (MC-100)</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField
+                label="Nomor Berita Acara MC-0 (Awal)"
+                placeholder="602.1/045.MC0/PSDA/2026"
+                value={p.contractInfo.mc0Number ?? ''}
+                onChange={(v) => setC('mc0Number', v)}
+              />
+              <TextField
+                label="Tanggal Berita Acara MC-0"
+                type="date"
+                value={p.contractInfo.mc0Date ?? ''}
+                onChange={(v) => setC('mc0Date', v)}
+              />
+              <TextField
+                label="Nomor Berita Acara MC-100 (Akhir)"
+                placeholder="602.1/045.MC100/PSDA/2026"
+                value={p.contractInfo.mc100Number}
+                onChange={(v) => setC('mc100Number', v)}
+              />
+              <TextField
+                label="Tanggal Berita Acara MC-100"
+                type="date"
+                value={p.contractInfo.mc100Date ?? ''}
+                onChange={(v) => setC('mc100Date', v)}
+              />
+            </div>
+          </div>
+
           <NumField
             label="Nilai Kontrak (Rp)"
             value={p.contractInfo.contractValueIdr}
@@ -378,6 +428,7 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
         </div>
       </Card>
 
+      {/* 5. Jadwal Pelaksanaan & SPMK */}
       <Card title="Jadwal Pelaksanaan & SPMK (MONEV Timeline)" icon={<Calendar className="h-5 w-5 text-amber-500" />}>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
@@ -420,11 +471,12 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
         </div>
       </Card>
 
-      <Card title="Tim Pemeriksa & Para Pihak" icon={<Users className="h-5 w-5" />}>
+      {/* 6. Tim Pemeriksa & Panitia Serah Terima PHO */}
+      <Card title="Tim Pengawas & Panitia Serah Terima Pertama (PHO)" icon={<Users className="h-5 w-5" />}>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label="Nomor Berita Acara PHO" value={p.inspectionTeam.baNumber} onChange={(v) => setT('baNumber', v)} />
           <TextField
-            label="Tanggal Pemeriksaan"
+            label="Tanggal Pemeriksaan Fisik PHO"
             type="date"
             value={p.inspectionTeam.inspectionDate}
             onChange={(v) => setT('inspectionDate', v)}
@@ -477,16 +529,62 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
         </div>
       </Card>
 
-      <Card title="Kesimpulan BA & Analisis AI" icon={<KeyRound className="h-5 w-5 text-purple-600" />}>
+      {/* 7. Administrasi Serah Terima Akhir (FHO) */}
+      <Card title="Administrasi Serah Terima Akhir (FHO)" icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}>
+        <p className="text-xs text-slate-500">
+          Kelengkapan administrasi Berita Acara FHO setelah masa pemeliharaan selesai dan seluruh cacat mutu tertuntaskan.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 pt-1">
+          <TextField
+            label="Nomor Berita Acara FHO"
+            placeholder="602.1/045.BA-FHO/PSDA/2027"
+            value={p.fhoInfo?.baFhoNumber ?? ''}
+            onChange={(v) => setF('baFhoNumber', v)}
+          />
+          <TextField
+            label="Tanggal Berita Acara FHO"
+            type="date"
+            value={p.fhoInfo?.baFhoDate ?? ''}
+            onChange={(v) => setF('baFhoDate', v)}
+          />
+          <TextField
+            label="Tanggal Pemeriksaan Akhir Lapangan"
+            type="date"
+            value={p.fhoInfo?.inspectionDate ?? ''}
+            onChange={(v) => setF('inspectionDate', v)}
+          />
+          <TextField
+            label="Ketua Panitia FHO"
+            value={p.fhoInfo?.leadInspectorName ?? p.inspectionTeam.leadInspectorName}
+            onChange={(v) => setF('leadInspectorName', v)}
+          />
+          <TextField
+            label="NIP Ketua Panitia FHO"
+            value={p.fhoInfo?.leadInspectorNip ?? p.inspectionTeam.leadInspectorNip}
+            onChange={(v) => setF('leadInspectorNip', v)}
+          />
+          <div className="sm:col-span-2">
+            <TextField
+              label="Catatan Akhir Penutupan Masa Pemeliharaan"
+              placeholder="Contoh: Seluruh cacat mutu telah diperbaiki tuntas dan fungsi hidraulis bekerja 100% normal."
+              value={p.fhoInfo?.closureNotes ?? ''}
+              onChange={(v) => setF('closureNotes', v)}
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* 8. Evaluasi Kelayakan PHO & Analisis AI */}
+      <Card title="Evaluasi Kelayakan PHO & Analisis AI" icon={<KeyRound className="h-5 w-5 text-purple-600" />}>
         <div className="grid gap-3">
           <SelectField
-            label="Pernyataan Kelayakan PHO pada Berita Acara"
+            label="Status Rekomendasi Kelayakan PHO pada Berita Acara"
             value={p.conclusionMode}
             onChange={(v) => metaUp((x) => ({ ...x, conclusionMode: v }))}
             options={sides}
           />
           <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
-            <strong className="font-semibold text-slate-800">Evaluasi Otomatis:</strong> Cacat mutu KRITIS atau STA belum diukur → Belum Dapat Diterima. Terdapat cacat mutu minor (Defect List) → Diterima dengan Catatan. Selain itu → Dapat Diterima.
+            <strong className="font-semibold text-slate-800">Evaluasi Otomatis:</strong> Cacat mutu KRITIS atau STA belum diukur → Belum Dapat Diterima. Terdapat cacat mutu minor/mayor (Defect List) → Diterima dengan Catatan. Selain itu → Dapat Diterima.
           </div>
           <TextField
             label="Kunci API Google AI Studio (Gemini)"
