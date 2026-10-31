@@ -45,7 +45,7 @@ export const DefectItemSchema = z.object({
   repairInstruction: z.string().default(''),
   affectedVolumeOrArea: z.string().default(''),
   dueDays: z.number().default(7),
-  analysisSource: z.enum(['GEMINI_VISION', 'MANUAL_PRESET']).default('MANUAL_PRESET'),
+  analysisSource: z.enum(['OFFLINE_AGENT', 'LOCAL_SIDECAR', 'GEMINI_VISION', 'MANUAL_PRESET']).default('MANUAL_PRESET'),
   positionSide: z.enum(['KIRI', 'KANAN', 'KIRI_KANAN', 'AS_TENGAH']).default('AS_TENGAH'),
   gpsCoordinates: z
     .object({

@@ -18,13 +18,14 @@ import {
 } from 'lucide-react';
 import type { ConclusionMode, MonevProject } from '../types';
 import type { Updater } from '../App';
-import { Btn, Card, NumField, SelectField, TextField, cx } from './ui';
+import { Btn, Card, NumField, SelectField, TextField } from './ui';
 import { buildMc0Template, buildMc100Template, buildMcTerpaduTemplate, importCsv } from '../lib/csv';
 import { downloadBlob, getStoredApiKey, normalizeProject, safeFileName, setStoredApiKey } from '../lib/storage';
 import { buildDemoProject } from '../lib/demo';
 import { blankProject } from '../lib/factory';
 import { fileToDataUrl, loadImage } from '../lib/imaging';
 import { resolveApiKey } from '../lib/gemini';
+import { aiManager, type AIPreference } from '../lib/ai/manager';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface Props {
@@ -42,6 +43,9 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
   const logoRef = useRef<HTMLInputElement>(null);
   const [importLog, setImportLog] = useState<string[]>([]);
   const [apiKey, setApiKey] = useState(getStoredApiKey());
+  const [aiPref, setAiPref] = useState<AIPreference>(aiManager.getPreference());
+  const [sidecarUrl, setSidecarUrl] = useState(aiManager.getSidecarConfig().baseUrl);
+  const [sidecarModel, setSidecarModel] = useState(aiManager.getSidecarConfig().model);
 
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
@@ -586,52 +590,96 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
           <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
             <strong className="font-semibold text-slate-800">Evaluasi Otomatis:</strong> Cacat mutu KRITIS atau STA belum diukur → Belum Dapat Diterima. Terdapat cacat mutu minor/mayor (Defect List) → Diterima dengan Catatan. Selain itu → Dapat Diterima.
           </div>
-          <TextField
-            label="Kunci API Google AI Studio (Gemini)"
-            type="password"
-            value={apiKey}
-            onChange={setApiKey}
-            placeholder="AIzaSy…"
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Btn
-                variant="primary"
-                onClick={() => {
-                  setStoredApiKey(apiKey.trim());
-                  notify(apiKey.trim() ? 'Kunci API disimpan di sesi peramban.' : 'Kunci API dihapus.');
-                }}
-              >
-                Simpan Kunci
-              </Btn>
-              <Btn
-                variant="ghost"
-                onClick={() => {
-                  setApiKey('');
-                  setStoredApiKey('');
-                  notify('Kunci API dihapus dari sesi peramban.');
-                }}
-              >
-                Hapus Kunci
-              </Btn>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className={cx(
-                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold tracking-tight',
-                  resolveApiKey()
-                    ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-500/20'
-                    : 'bg-slate-100 text-slate-600 ring-1 ring-slate-300',
-                )}
-              >
-                <span className={cx('h-2 w-2 rounded-full', resolveApiKey() ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400')} />
-                {resolveApiKey() ? 'AI Gemini 2.5 Flash Aktif' : 'Preset Lokal Offline'}
+          <div className="border-t border-slate-200 pt-3 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Mesin Klasifikasi AI Lapangan</h4>
+                <p className="text-[11px] text-slate-500">Mendukung operasional full offline pada area blank spot tanpa internet.</p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-emerald-100 text-emerald-800 ring-1 ring-emerald-500/20">
+                <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
+                {aiPref === 'OFFLINE_AGENT'
+                  ? '100% Offline PUPR Ready'
+                  : aiPref === 'LOCAL_SIDECAR'
+                  ? 'Local Sidecar Ready'
+                  : aiPref === 'GEMINI_VISION'
+                  ? (resolveApiKey() ? 'Gemini Cloud Aktif' : 'Gemini (Kunci Kosong)')
+                  : 'Mode Otomatis Adaptif'}
               </span>
             </div>
+
+            <SelectField
+              label="Preferensi Engine AI Inspeksi"
+              value={aiPref}
+              onChange={(v) => {
+                const p = v as AIPreference;
+                setAiPref(p);
+                aiManager.saveSettings(p, sidecarUrl, sidecarModel);
+                notify(`Preferensi AI diubah ke: ${p}`);
+              }}
+              options={[
+                { value: 'AUTO', label: 'Otomatis Adaptif Lapangan (Sidecar -> Cloud -> Offline PSDA)' },
+                { value: 'OFFLINE_AGENT', label: '100% Offline PSDA Engine (Spesialis Standar KP/SNI - 0 MB Kuota)' },
+                { value: 'LOCAL_SIDECAR', label: 'Local Sidecar Server (Ollama / Llama.cpp di Laptop Lapangan)' },
+                { value: 'GEMINI_VISION', label: 'Google Gemini 2.5 Flash Cloud (Perlu Internet & API Key)' },
+              ]}
+            />
+
+            {(aiPref === 'AUTO' || aiPref === 'LOCAL_SIDECAR') && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                <TextField
+                  label="URL Local Sidecar (Ollama)"
+                  value={sidecarUrl}
+                  onChange={setSidecarUrl}
+                  placeholder="http://localhost:11434"
+                />
+                <TextField
+                  label="Nama Model Sidecar"
+                  value={sidecarModel}
+                  onChange={setSidecarModel}
+                  placeholder="qwen2-vl:latest"
+                />
+              </div>
+            )}
+
+            {(aiPref === 'AUTO' || aiPref === 'GEMINI_VISION') && (
+              <div className="space-y-2">
+                <TextField
+                  label="Kunci API Google AI Studio (Gemini Cloud Opsional)"
+                  type="password"
+                  value={apiKey}
+                  onChange={setApiKey}
+                  placeholder="AIzaSy…"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Btn
+                    variant="primary"
+                    onClick={() => {
+                      setStoredApiKey(apiKey.trim());
+                      aiManager.saveSettings(aiPref, sidecarUrl, sidecarModel);
+                      notify(apiKey.trim() ? 'Pengaturan AI dan kunci API berhasil disimpan.' : 'Pengaturan AI disimpan.');
+                    }}
+                  >
+                    Simpan Pengaturan AI
+                  </Btn>
+                  <Btn
+                    variant="ghost"
+                    onClick={() => {
+                      setApiKey('');
+                      setStoredApiKey('');
+                      notify('Kunci API dihapus dari sesi peramban.');
+                    }}
+                  >
+                    Hapus Kunci
+                  </Btn>
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] text-slate-500">
+              * Mode <strong>100% Offline PSDA Engine</strong> mengkalkulasi volume dan klausul spesifikasi teknis (KP-02 s/d KP-05, SNI 1724:2015, SNI 2406) langsung pada perangkat tanpa membutuhkan kuota internet atau API key.
+            </p>
           </div>
-          <p className="text-[11px] text-slate-500">
-            Kunci hanya disimpan di sesi peramban lokal Anda dan tidak akan diunggah ke berkas JSON atau dibagikan ke pihak ketiga.
-          </p>
         </div>
       </Card>
 

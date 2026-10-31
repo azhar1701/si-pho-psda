@@ -25,7 +25,8 @@ import type { Updater } from '../App';
 import { Badge, Btn, Card, NumField, SelectField, TextField, cx } from './ui';
 import { CATEGORIES, POSITION_LABEL, SIDE_OPTIONS, SUBTYPES, presetsFor } from '../lib/templates';
 import { applyCrackFilter, burnWatermark, filterDataUrl, normalizeUpload, sourceToCanvas, JPEG_QUALITY } from '../lib/imaging';
-import { analyzeDefect, GEMINI_MODEL, resolveApiKey } from '../lib/gemini';
+import { analyzeDefect, GEMINI_MODEL } from '../lib/gemini';
+import { aiManager } from '../lib/ai/manager';
 import { buildWatermarkInfo, dimensionSummary, gpsText } from '../lib/inspection';
 import { stempelWaktu, uid } from '../lib/format';
 import { savePhoto } from '../lib/storage';
@@ -381,14 +382,21 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
 
     try {
       const r = await analyzeDefect(draft.rawPhoto, seg, abortRef.current.signal);
-      setDraft((d) => (d ? { ...d, ...r, entryType: r.defectCode === 'DOK-00' ? 'DOKUMENTASI' : 'CACAT_MUTU', analysisSource: 'GEMINI_VISION' } : null));
-      setAiNote(`Hasil klasifikasi ${GEMINI_MODEL}. Verifikasi uraian dan kuantitas sebelum disimpan.`);
+      const src = r.engineUsed || 'OFFLINE_AGENT';
+      setDraft((d) => (d ? { ...d, ...r, entryType: r.defectCode === 'DOK-00' ? 'DOKUMENTASI' : 'CACAT_MUTU', analysisSource: src } : null));
+      const sourceName =
+        src === 'OFFLINE_AGENT'
+          ? 'Agent AI Offline PSDA (PUPR Engine)'
+          : src === 'LOCAL_SIDECAR'
+          ? 'Local Sidecar (Ollama)'
+          : `Gemini Cloud (${GEMINI_MODEL})`;
+      setAiNote(`Hasil klasifikasi ${sourceName} [${r.defectCode}]. Verifikasi uraian teknis dan kuantitas.`);
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
       const pr = presets.find((x) => x.code !== 'DOK-00');
       if (pr) applyPreset(pr.code);
       setAiNote(
-        `Analisis Gemini tidak tersedia — ${(e as Error).message || 'galat jaringan'}. Dialihkan ke Pustaka Preset Cacat Mutu PSDA lokal (${pr?.code ?? '-'}); pilih kode yang sesuai.`,
+        `Analisis AI dialihkan ke Pustaka Preset Cacat Mutu PSDA lokal (${pr?.code ?? '-'}).`,
       );
     } finally {
       setBusy('');
@@ -806,15 +814,24 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
             <div className="grid gap-3">
               <Btn variant="primary" className="w-full" disabled={busy !== ''} onClick={runAi}>
                 {busy === 'ai' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                Analisis Cacat Mutu Visual (Gemini Vision AI)
+                Analisis Cacat Mutu Visual (Agent AI Lapangan)
               </Btn>
-              <p className="text-xs font-semibold text-slate-600">
-                {!online
-                  ? 'Status: LURING — analisis otomatis memakai Pustaka Preset lokal.'
-                  : !resolveApiKey()
-                  ? 'Status: kunci API belum diatur — analisis memakai Pustaka Preset lokal.'
-                  : `Model: ${GEMINI_MODEL} · keluaran JSON terstruktur.`}
-              </p>
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                <span>
+                  Engine:{' '}
+                  {aiManager.getPreference() === 'OFFLINE_AGENT'
+                    ? 'Offline PSDA Engine'
+                    : aiManager.getPreference() === 'LOCAL_SIDECAR'
+                    ? 'Local Sidecar (Ollama)'
+                    : aiManager.getPreference() === 'GEMINI_VISION'
+                    ? `Gemini Cloud (${GEMINI_MODEL})`
+                    : 'Otomatis (Adaptif Lapangan)'}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  {online ? 'Online Lapangan' : '100% Siap Blank Spot'}
+                </span>
+              </div>
               {aiNote && <p className="rounded-lg border-2 border-slate-300 bg-slate-50 p-2 text-xs font-bold text-slate-800">{aiNote}</p>}
               <label className="block">
                 <span className="mb-1 flex items-center gap-1 text-[13px] font-semibold text-slate-700">
@@ -894,8 +911,15 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
                 )}
               </div>
               <div className="text-xs font-semibold text-slate-600">
-                Sumber klasifikasi: {draft.analysisSource === 'GEMINI_VISION' ? 'Gemini Vision AI' : 'Preset Lokal / Manual'} · GPS:{' '}
-                {gpsText(draft.gpsCoordinates)} · Posisi: {POSITION_LABEL[draft.positionSide]}
+                Sumber klasifikasi:{' '}
+                {draft.analysisSource === 'OFFLINE_AGENT'
+                  ? 'Agent AI Offline PSDA'
+                  : draft.analysisSource === 'LOCAL_SIDECAR'
+                  ? 'Local Sidecar (Ollama)'
+                  : draft.analysisSource === 'GEMINI_VISION'
+                  ? 'Gemini Cloud AI'
+                  : 'Preset Lapangan / Manual'}{' '}
+                · GPS: {gpsText(draft.gpsCoordinates)} · Posisi: {POSITION_LABEL[draft.positionSide]}
               </div>
               <Btn variant="success" className="w-full text-base" disabled={busy !== ''} onClick={save}>
                 {busy === 'save' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}

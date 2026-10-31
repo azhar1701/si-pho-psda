@@ -61,7 +61,7 @@ export interface DefectItem {
   repairInstruction: string;
   affectedVolumeOrArea: string;
   dueDays: number;
-  analysisSource: 'GEMINI_VISION' | 'MANUAL_PRESET';
+  analysisSource: 'OFFLINE_AGENT' | 'LOCAL_SIDECAR' | 'GEMINI_VISION' | 'MANUAL_PRESET';
   positionSide: PositionSide;
   gpsCoordinates: { latitude: number | null; longitude: number | null; accuracyMeter: number | null };
   watermarkedPhotoId: string;

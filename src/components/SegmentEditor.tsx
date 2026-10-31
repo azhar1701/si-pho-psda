@@ -586,7 +586,25 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
                         ) : (
                           <Badge tone="green">Dokumentasi Fisik</Badge>
                         )}
-                        <Badge tone="slate">{d.analysisSource === 'GEMINI_VISION' ? 'Gemini Vision' : 'Preset Lapangan'}</Badge>
+                        <Badge
+                          tone={
+                            d.analysisSource === 'OFFLINE_AGENT'
+                              ? 'green'
+                              : d.analysisSource === 'LOCAL_SIDECAR'
+                              ? 'blue'
+                              : d.analysisSource === 'GEMINI_VISION'
+                              ? 'purple'
+                              : 'slate'
+                          }
+                        >
+                          {d.analysisSource === 'OFFLINE_AGENT'
+                            ? 'AI Offline PSDA'
+                            : d.analysisSource === 'LOCAL_SIDECAR'
+                            ? 'Sidecar Ollama'
+                            : d.analysisSource === 'GEMINI_VISION'
+                            ? 'Gemini Cloud'
+                            : 'Preset Lapangan'}
+                        </Badge>
                       </div>
                       <div className="font-bold text-slate-900">{d.defectTitle}</div>
                       <div className="text-xs text-slate-600 line-clamp-2">{d.technicalFinding}</div>
