@@ -31,3 +31,4 @@ export interface AIAgentEngine {
   readonly isAvailable: () => Promise<boolean> | boolean;
   analyze: (req: DefectAnalysisRequest) => Promise<DefectAnalysis>;
 }
+

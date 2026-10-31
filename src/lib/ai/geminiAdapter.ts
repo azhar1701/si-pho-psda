@@ -103,3 +103,4 @@ Klasifikasikan cacat mutu yang paling dominan pada citra.`;
     };
   }
 }
+
