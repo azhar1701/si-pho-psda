@@ -92,7 +92,7 @@ export default function ReportView({
             )}
           >
             <FileCheck2 className="h-4 w-4 text-amber-400" />
-            2. Berita Acara PHO &amp; Lampiran (Uji Petik)
+            2. BA Serah Terima Pertama &amp; Lampiran
           </button>
 
           <button
@@ -106,7 +106,7 @@ export default function ReportView({
             )}
           >
             <Award className="h-4 w-4 text-amber-400" />
-            3. Berita Acara FHO (Serah Terima Akhir)
+            3. BA Serah Terima Akhir
           </button>
         </div>
 
@@ -253,14 +253,14 @@ function BeritaAcara({ p }: { p: MonevProject }) {
     ['Nomor Kontrak', c.contractNumber],
     ['Tanggal Kontrak', tanggalPanjang(c.contractDate)],
     ['Nomor Berita Acara MC-0', c.mc0Number ?? '-'],
-    ['Nomor Berita Acara MC-100', c.mc100Number],
+    ['Nomor Berita Acara MC-100 (As-Built)', c.mc100Number],
     ['Nilai Kontrak', `${fmtIdr(c.contractValueIdr)} (${terbilang(c.contractValueIdr)})`],
     ['Tahun Anggaran', c.fiscalYear],
     ['Daerah Irigasi / Sungai', c.irrigationAreaOrRiverName],
     ['Lokasi Pekerjaan', c.locationDistrict],
     ['Penyedia Jasa (Kontraktor)', c.contractorName],
     ['Konsultan Pengawas', c.supervisingConsultantName],
-    ['Masa Pemeliharaan', `${c.maintenancePeriodDays} hari kalender terhitung sejak penandatanganan BA PHO`],
+    ['Masa Pemeliharaan', `${c.maintenancePeriodDays} hari kalender terhitung sejak Serah Terima Pertama`],
   ];
 
   const byCat = CATEGORY_ORDER.map((cat) => {
@@ -275,8 +275,8 @@ function BeritaAcara({ p }: { p: MonevProject }) {
       <Kop p={p} />
       <div className="text-center" style={{ fontWeight: 700, fontSize: '12pt', lineHeight: 1.35 }}>
         <div style={{ textDecoration: 'underline' }}>BERITA ACARA PEMERIKSAAN BERSAMA DAN HASIL OPNAME LAPANGAN</div>
-        <div>DALAM RANGKA SERAH TERIMA PERTAMA PEKERJAAN (PHO)</div>
-        <div style={{ fontWeight: 400, fontSize: '10.5pt', marginTop: '2pt' }}>Nomor: {dash(t.baNumber)}</div>
+        <div>DALAM RANGKA SERAH TERIMA PERTAMA PEKERJAAN</div>
+        <div style={{ fontWeight: 400, fontSize: '10.5pt', marginTop: '2pt' }}>Nomor: {dash(t.baPhoNumber)}</div>
       </div>
       <p style={{ marginTop: '12pt', textIndent: '10mm', textAlign: 'justify' }}>
         Pada hari ini, <b>{k.hari}</b> tanggal <b>{k.tanggal}</b> bulan <b>{k.bulan}</b> tahun <b>{k.tahun}</b> ({k.angka}), bertempat di lokasi pekerjaan konstruksi keairan, kami yang bertanda tangan di bawah ini Tim Teknis Pemeriksa / Panitia Pemeriksa Hasil Pekerjaan yang dibentuk berdasarkan Keputusan Pejabat Pembuat Komitmen Nomor <b>{dash(t.skNumber)}</b>, bersama Direksi Teknis, Konsultan Pengawas, dan Penyedia Jasa, telah melaksanakan pemeriksaan fisik bersama uji petik dimensi dan mutu hasil pekerjaan atas:
@@ -360,7 +360,7 @@ function LampiranHead({ p, no, title }: { p: MonevProject; no: string; title: st
           <b>{p.agencyHeader.departmentName || 'DINAS TEKNIS PSDA'}</b> · Paket: <b>{c.packageName}</b>
         </div>
         <div>
-          Lampiran BA PHO No: <b>{dash(t.baNumber)}</b>
+          Lampiran BA PHO No: <b>{dash(t.baPhoNumber)}</b>
         </div>
       </div>
       <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '10.5pt', marginTop: '2pt' }}>
@@ -374,7 +374,7 @@ function LampiranOpname({ p }: { p: MonevProject }) {
   const tol = p.contractInfo.dimensionToleranceMeter;
   return (
     <section className="sheet landscape">
-      <LampiranHead p={p} no="Lampiran I" title="TABEL PENGUKURAN DIMENSI GEOMETRIS DAN PERHITUNGAN VOLUME HASIL OPNAME (MC-100 VS REALISASI)" />
+      <LampiranHead p={p} no="Lampiran I" title="TABEL PENGUKURAN DIMENSI GEOMETRIS DAN PERHITUNGAN VOLUME HASIL OPNAME (KONTRAK MC-100 vs AKTUAL LAPANGAN)" />
       <p style={{ fontSize: '8.5pt', margin: '2pt 0 6pt', textAlign: 'justify' }}>
         Toleransi deviasi dimensi yang diizinkan mengacu Standar Perencanaan Irigasi KP-PU: <b>τ = {fmt(tol, 3)} m</b>. Titik sampel dengan deviasi negatif melebihi toleransi (Δp &lt; −τ) dinyatakan Kurang Dimensi Lokal. Volume akhir mengacu pada rerata aritmetik titik sampel uji petik yang diverifikasi.
       </p>
@@ -507,7 +507,7 @@ function LampiranDefect({ p }: { p: MonevProject }) {
           {defects.length === 0 ? (
             <tr>
               <td colSpan={7} className="text-center" style={{ fontStyle: 'italic', padding: '12pt' }}>
-                Tidak terdapat catatan cacat mutu pada pemeriksaan fisik PHO.
+                Tidak terdapat catatan cacat mutu pada pemeriksaan fisik lapangan.
               </td>
             </tr>
           ) : (
@@ -842,17 +842,17 @@ function LaporanMonevSheet({ p }: { p: MonevProject }) {
 function BeritaAcaraFHOSheet({ p }: { p: MonevProject }) {
   const c = p.contractInfo,
     t = p.inspectionTeam,
-    f = p.fhoInfo;
+    f = p.serahTerimaAkhirInfo;
 
-  const fhoBaNo = f?.baFhoNumber || `602.1/BA-FHO/${p.contractInfo.fiscalYear}`;
-  const fhoDateStr = f?.baFhoDate || p.timeline?.fhoTargetDate || t.inspectionDate;
+  const fhoBaNo = f?.baNumber || `602.1/BA-FHO/${p.contractInfo.fiscalYear}`;
+  const fhoDateStr = f?.baDate || p.timeline?.serahTerimaAkhirDate || p.timeline?.fhoTargetDate || t.inspectionDate;
 
   return (
     <section className="sheet">
       <Kop p={p} />
       <div className="text-center" style={{ fontWeight: 700, fontSize: '12pt', lineHeight: 1.35 }}>
         <div style={{ textDecoration: 'underline' }}>BERITA ACARA SERAH TERIMA AKHIR PEKERJAAN</div>
-        <div>(FINAL HAND OVER - FHO)</div>
+        <div>(SERAH TERIMA AKHIR PEKERJAAN)</div>
         <div style={{ fontWeight: 400, fontSize: '10.5pt', marginTop: '2pt' }}>
           Nomor: {fhoBaNo}
         </div>
@@ -877,10 +877,10 @@ function BeritaAcaraFHOSheet({ p }: { p: MonevProject }) {
             </td>
           </tr>
           <tr>
-            <td>Berita Acara PHO</td>
+            <td>Berita Acara Serah Terima Pertama</td>
             <td>:</td>
             <td>
-              {t.baNumber} ({tanggalPanjang(t.inspectionDate)})
+              {t.baPhoNumber} ({tanggalPanjang(t.inspectionDate)})
             </td>
           </tr>
           <tr>
@@ -904,7 +904,7 @@ function BeritaAcaraFHOSheet({ p }: { p: MonevProject }) {
           Penyedia Jasa telah menyelesaikan seluruh masa pemeliharaan sesuai ketentuan dokumen kontrak kerja konstruksi selama {c.maintenancePeriodDays} hari kalender.
         </li>
         <li style={{ marginBottom: '4pt' }}>
-          Seluruh daftar cacat mutu (Defect List) dan lembar Non-Conformance Report (NCR) yang tercantum pada Berita Acara PHO telah diperbaiki secara tuntas dan diverifikasi berfungsi normal.
+          Seluruh daftar cacat mutu (Defect List) dan lembar Non-Conformance Report (NCR) telah diperbaiki secara tuntas dan diverifikasi berfungsi normal.
         </li>
         <li style={{ marginBottom: '4pt' }}>
           Fisik bangunan air dan kelengkapannya berada dalam kondisi prima, kokoh, dan siap dimanfaatkan secara berkelanjutan.

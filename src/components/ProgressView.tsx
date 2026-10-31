@@ -19,7 +19,7 @@ import { Btn, Card, NumField, SelectField, TextField, cx } from './ui';
 import { MonevStatusBadge, NCRStatusBadge, SeverityBadge } from './StatusBadge';
 import CurveSChart from './CurveSChart';
 import { computeNCRStats, computeProgressSummary, computeTimelineSummary } from '../lib/progressCalc';
-import { evaluateFHOReadiness } from '../lib/calc';
+import { evaluateSerahTerimaAkhirReadiness } from '../lib/calc';
 import { fmt, fmtIdr, todayISO } from '../lib/format';
 import { newMaintenanceRecord, newNCRItem, newProgressPeriod } from '../lib/factory';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -61,7 +61,7 @@ export default function ProgressView({ project: p, update, notify }: Props) {
   const timelineSummary = computeTimelineSummary(p.timeline, p.contractInfo.contractDate);
   const progressSummary = computeProgressSummary(p.progressPeriods ?? []);
   const ncrStats = computeNCRStats(p);
-  const fhoReadiness = evaluateFHOReadiness(p);
+  const staReadiness = evaluateSerahTerimaAkhirReadiness(p);
 
   // Period management
   const handleSavePeriod = (period: ProgressPeriod) => {
@@ -301,7 +301,7 @@ export default function ProgressView({ project: p, update, notify }: Props) {
           )}
         >
           <Wrench className="h-4 w-4 text-amber-400" />
-          Masa Pemeliharaan (Menuju FHO)
+          Masa Pemeliharaan & Serah Terima Akhir
         </button>
       </div>
 
@@ -573,34 +573,34 @@ export default function ProgressView({ project: p, update, notify }: Props) {
         </div>
       )}
 
-      {/* SUBTAB 3: MASA PEMELIHARAAN (FHO) */}
+      {/* SUBTAB 3: MASA PEMELIHARAAN & SERAH TERIMA AKHIR */}
       {subTab === 'pemeliharaan' && (
         <div className="space-y-4">
-          {/* FHO Readiness Gate Card */}
+          {/* Evaluasi Kelayakan Serah Terima Akhir */}
           <div
             className={cx(
               'rounded-2xl border p-4 space-y-3 shadow-xs',
-              fhoReadiness.isReady ? 'border-emerald-300 bg-emerald-50/50' : 'border-amber-300 bg-amber-50/40',
+              staReadiness.isReady ? 'border-emerald-300 bg-emerald-50/50' : 'border-amber-300 bg-amber-50/40',
             )}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60">
               <div className="flex items-center gap-2">
-                {fhoReadiness.isReady ? (
+                {staReadiness.isReady ? (
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 ) : (
                   <AlertCircle className="h-5 w-5 text-amber-600" />
                 )}
                 <span className="text-xs font-black uppercase tracking-wider text-slate-900">
-                  Pintu Kendali Kelayakan Serah Terima Akhir (FHO Readiness Gate)
+                  Evaluasi Kelayakan Serah Terima Akhir
                 </span>
               </div>
               <span
                 className={cx(
                   'px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider shrink-0 text-center',
-                  fhoReadiness.isReady ? 'bg-emerald-600 text-white' : 'bg-amber-400 text-slate-950',
+                  staReadiness.isReady ? 'bg-emerald-600 text-white' : 'bg-amber-400 text-slate-950',
                 )}
               >
-                {fhoReadiness.isReady ? '✓ MEMENUHI SYARAT FHO' : 'BELUM MEMENUHI SYARAT FHO'}
+                {staReadiness.isReady ? '✓ LAYAK SERAH TERIMA AKHIR' : 'BELUM MEMENUHI SYARAT SERAH TERIMA AKHIR'}
               </span>
             </div>
 
@@ -608,32 +608,32 @@ export default function ProgressView({ project: p, update, notify }: Props) {
               <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-2xs">
                 <div className="text-[10px] font-bold text-slate-500 uppercase">1. Masa Pemeliharaan</div>
                 <div className="text-sm font-black text-slate-900 mt-0.5">
-                  {fhoReadiness.isWarrantyPeriodEnded ? 'Selesai (Terpenuhi)' : `Sisa ${fhoReadiness.warrantyDaysRemaining} hari`}
+                  {staReadiness.isWarrantyPeriodEnded ? 'Selesai (Terpenuhi)' : `Sisa ${staReadiness.warrantyDaysRemaining} hari`}
                 </div>
-                <div className="text-[10px] text-slate-500">Target FHO: {p.timeline?.fhoTargetDate || '-'}</div>
+                <div className="text-[10px] text-slate-500">Target STA: {p.timeline?.serahTerimaAkhirDate || p.timeline?.fhoTargetDate || '-'}</div>
               </div>
               <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-2xs">
-                <div className="text-[10px] font-bold text-slate-500 uppercase">2. Status Cacat Mutu PHO</div>
-                <div className={cx('text-sm font-black mt-0.5', fhoReadiness.unresolvedDefectCount === 0 ? 'text-emerald-700' : 'text-rose-700')}>
-                  {fhoReadiness.unresolvedDefectCount === 0 ? '0 Butir Tertunggak' : `${fhoReadiness.unresolvedDefectCount} Butir Belum Ditutup`}
+                <div className="text-[10px] font-bold text-slate-500 uppercase">2. Status Perbaikan Cacat Mutu</div>
+                <div className={cx('text-sm font-black mt-0.5', staReadiness.unresolvedDefectCount === 0 ? 'text-emerald-700' : 'text-rose-700')}>
+                  {staReadiness.unresolvedDefectCount === 0 ? '0 Butir Tertunggak' : `${staReadiness.unresolvedDefectCount} Butir Belum Ditutup`}
                 </div>
-                <div className="text-[10px] text-slate-500">Wajib tuntas 100% untuk FHO</div>
+                <div className="text-[10px] text-slate-500">Wajib tuntas 100% sebelum Serah Terima Akhir</div>
               </div>
               <div className="rounded-xl bg-white p-3 border border-slate-200 shadow-2xs">
                 <div className="text-[10px] font-bold text-slate-500 uppercase">3. Status Lembar NCR</div>
-                <div className={cx('text-sm font-black mt-0.5', fhoReadiness.openNcrCount === 0 ? 'text-emerald-700' : 'text-rose-700')}>
-                  {fhoReadiness.openNcrCount === 0 ? '0 NCR Terbuka' : `${fhoReadiness.openNcrCount} NCR Masih Aktif`}
+                <div className={cx('text-sm font-black mt-0.5', staReadiness.openNcrCount === 0 ? 'text-emerald-700' : 'text-rose-700')}>
+                  {staReadiness.openNcrCount === 0 ? '0 NCR Terbuka' : `${staReadiness.openNcrCount} NCR Masih Aktif`}
                 </div>
                 <div className="text-[10px] text-slate-500">Wajib seluruh NCR closed</div>
               </div>
             </div>
 
-            {!fhoReadiness.isReady && (
+            {!staReadiness.isReady && (
               <div className="rounded-xl bg-amber-100/70 border border-amber-300/80 p-2.5 text-xs text-amber-950">
-                <div className="font-bold mb-1">Catatan Hambatan Kelayakan FHO:</div>
+                <div className="font-bold mb-1">Hambatan Menuju Serah Terima Akhir:</div>
                 <ul className="list-disc list-inside space-y-0.5 text-[11px]">
-                  {fhoReadiness.reasons.map((r, i) => (
-                    <li key={i}>{r}</li>
+                  {staReadiness.reasons.map((reason: string, idx: number) => (
+                    <li key={idx}>{reason}</li>
                   ))}
                 </ul>
               </div>
@@ -645,10 +645,10 @@ export default function ProgressView({ project: p, update, notify }: Props) {
               <div>
                 <h2 className="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
                   <Wrench className="h-4 w-4 text-amber-500" />
-                  Masa Pemeliharaan Menuju Serah Terima Akhir (FHO)
+                  Masa Pemeliharaan & Persiapan Serah Terima Akhir
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Durasi pemeliharaan: <strong>{p.contractInfo.maintenancePeriodDays} hari kalender</strong> sejak tanggal Berita Acara PHO.
+                  Durasi pemeliharaan: <strong>{p.contractInfo.maintenancePeriodDays} hari kalender</strong> sejak tanggal Serah Terima Pertama (Uji Petik).
                 </p>
               </div>
 
@@ -660,15 +660,15 @@ export default function ProgressView({ project: p, update, notify }: Props) {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-[11px] font-bold text-slate-500 block">Tanggal PHO</span>
+                <span className="text-[11px] font-bold text-slate-500 block">Tgl. Serah Terima Pertama</span>
                 <span className="text-sm font-black text-slate-900">{p.inspectionTeam.inspectionDate || '-'}</span>
               </div>
               <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-[11px] font-bold text-slate-500 block">Nomor BA FHO</span>
-                <span className="text-sm font-black text-slate-900">{p.fhoInfo?.baFhoNumber || 'Belum Ditetapkan'}</span>
+                <span className="text-[11px] font-bold text-slate-500 block">Nomor BA Serah Terima Akhir</span>
+                <span className="text-sm font-black text-slate-900">{p.serahTerimaAkhirInfo?.baNumber || 'Belum Ditetapkan'}</span>
               </div>
               <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-[11px] font-bold text-slate-500 block">Target Tanggal FHO</span>
+                <span className="text-[11px] font-bold text-slate-500 block">Target Serah Terima Akhir</span>
                 <span className="text-sm font-black text-amber-700">{p.timeline?.fhoTargetDate || 'Menyesuaikan masa pemeliharaan'}</span>
               </div>
             </div>

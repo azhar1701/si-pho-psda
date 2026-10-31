@@ -1,4 +1,4 @@
-import type { ContractTimeline, MonevStatus, PHOProject, ProgressPeriod } from '../types';
+import type { ContractTimeline, MonevProject, MonevStatus, ProgressPeriod } from '../types';
 
 export interface TimelineSummary {
   startDate: string;
@@ -144,7 +144,7 @@ export function buildCurvePoints(periods: ProgressPeriod[] = []): CurvePoint[] {
   }));
 }
 
-export function computeNCRStats(project: PHOProject) {
+export function computeNCRStats(project: MonevProject) {
   const items = project.ncrItems ?? [];
   const total = items.length;
   const open = items.filter((i) => i.status === 'OPEN').length;

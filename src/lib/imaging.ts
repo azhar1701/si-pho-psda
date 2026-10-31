@@ -98,7 +98,7 @@ export interface WatermarkInfo {
   line1: string; // Paket & No. Kontrak
   line2: string; // STA & Posisi
   line3: string; // GPS & Waktu
-  line4: string; // Dimensi rerata vs MC-100
+  line4: string; // Dimensi aktual vs target monev / rencana kontrak (MC-100)
   status: string; // Status pemeriksaan
   statusColor: string;
 }

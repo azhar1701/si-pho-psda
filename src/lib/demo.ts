@@ -186,7 +186,7 @@ export const buildDemoProject = async (): Promise<MonevProject> => {
     dimensionToleranceMeter: TOL,
   };
   p.inspectionTeam = {
-    baNumber: '602.1/045.BA-PHO/PSDA/X/2026',
+    baPhoNumber: '602.1/045.BA-PHO/PSDA/X/2026',
     skNumber: '602.1/Kep.112/PSDA/2026',
     inspectionDate: '2026-10-27',
     leadInspectorName: 'Ir. Asep Saepudin, M.T.',
@@ -206,14 +206,14 @@ export const buildDemoProject = async (): Promise<MonevProject> => {
     startDate: '2026-05-11',
     endDate: '2026-10-07',
     totalCalendarDays: 150,
-    fhoTargetDate: '2027-04-05',
+    serahTerimaAkhirDate: '2027-04-05',
     milestones: [
       { id: 'mls-1', label: 'Mutual Check Awal (MC-0)', plannedDate: '2026-05-25', actualDate: '2026-05-24', targetPercent: 5, isCompleted: true },
       { id: 'mls-2', label: 'MC-50 (Saluran Sekunder Utama)', plannedDate: '2026-07-20', actualDate: '2026-07-22', targetPercent: 50, isCompleted: true },
       { id: 'mls-3', label: 'Uji Pengaliran Air & Pintu', plannedDate: '2026-09-15', actualDate: '2026-09-15', targetPercent: 85, isCompleted: true },
       { id: 'mls-4', label: 'Opname Akhir MC-100', plannedDate: '2026-10-05', actualDate: '2026-10-06', targetPercent: 100, isCompleted: true },
       { id: 'mls-5', label: 'Serah Terima Pertama (PHO)', plannedDate: '2026-10-27', actualDate: '2026-10-27', targetPercent: 100, isCompleted: true },
-      { id: 'mls-6', label: 'Serah Terima Akhir (FHO)', plannedDate: '2027-04-05', targetPercent: 100, isCompleted: false },
+      { id: 'mls-6', label: 'Serah Terima Akhir', plannedDate: '2027-04-05', targetPercent: 100, isCompleted: false },
     ],
   };
 
@@ -367,7 +367,7 @@ export const buildDemoProject = async (): Promise<MonevProject> => {
       actualFinancialPercent: 95.0,
       weatherSummary: 'Cerah',
       workerCount: 12,
-      notes: 'Pekerjaan fisik selesai 100%, persiapan uji petik PHO bersama Direksi Teknis & PPHP.',
+      notes: 'Pekerjaan fisik selesai 100%, persiapan uji petik lapangan bersama Direksi Teknis & PPHP.',
     },
   ];
 
@@ -401,7 +401,7 @@ export const buildDemoProject = async (): Promise<MonevProject> => {
       correctiveAction: 'Kupas siar lama sedalam 2 cm, bersihkan dan siar ulang mortar 1:2 serta buka sumbatan pipa sulingan.',
       targetClosureDate: '2026-11-03',
       status: 'OPEN',
-      closureNotes: 'Dalam penanganan masa pemeliharaan pasca-PHO.',
+      closureNotes: 'Dalam penanganan masa pemeliharaan pasca-Serah Terima Pertama.',
     },
   ];
 
@@ -419,9 +419,9 @@ export const buildDemoProject = async (): Promise<MonevProject> => {
   ];
 
   // Data Administrasi FHO
-  p.fhoInfo = {
-    baFhoNumber: '602.1/045.BA-FHO/PSDA/IV/2027',
-    baFhoDate: '2027-04-05',
+  p.serahTerimaAkhirInfo = {
+    baNumber: '602.1/045.BA-FHO/PSDA/IV/2027',
+    baDate: '2027-04-05',
     inspectionDate: '2027-04-04',
     leadInspectorName: 'Ir. Asep Saepudin, M.T.',
     leadInspectorNip: '19760812 200312 1 004',
@@ -430,7 +430,7 @@ export const buildDemoProject = async (): Promise<MonevProject> => {
     consultantRepName: 'Rina Marlina, S.T.',
     consultantRepTitle: 'Site Engineer',
     warrantyStatus: 'DALAM_PEMELIHARAAN',
-    closureNotes: 'Masa pemeliharaan sedang berjalan (180 hari kalender). Pemantauan perbaikan defect list PHO aktif dipantau.',
+    closureNotes: 'Masa pemeliharaan sedang berjalan (180 hari kalender). Pemantauan perbaikan defect list aktif dilaksanakan.',
   };
 
   // 1. Saluran Irigasi — trapesium pasangan batu (uji petik aktif)

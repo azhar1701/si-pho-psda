@@ -20,7 +20,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import type { DefectItem, PHOProject, PositionSide, Severity } from '../types';
+import type { DefectItem, MonevProject, PositionSide, Severity } from '../types';
 import type { Updater } from '../App';
 import { Badge, Btn, Card, NumField, SelectField, TextField, cx } from './ui';
 import { CATEGORIES, POSITION_LABEL, SIDE_OPTIONS, SUBTYPES, presetsFor } from '../lib/templates';
@@ -100,7 +100,7 @@ const RAPID_TAGS: RapidTagDef[] = [
 ];
 
 interface Props {
-  project: PHOProject;
+  project: MonevProject;
   update: Updater;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
@@ -909,7 +909,7 @@ export default function CameraView({ project, update, selectedId, setSelectedId,
               <li>Tempatkan rambu ukur / pita meteran pada bidang temuan; luruskan dengan garis vertikal grid.</li>
               <li>Aktifkan Filter Retak untuk menonjolkan retak, siaran lepas, atau rongga pasangan/bronjong.</li>
               <li>Ambil foto, klasifikasikan temuan (Gemini Vision atau Preset), lalu simpan.</li>
-              <li>Watermark berisi paket, kontrak, STA, posisi, GPS, waktu, dimensi rerata vs MC-100, dan status.</li>
+              <li>Watermark berisi paket, kontrak, STA, posisi, GPS, waktu, dimensi aktual vs rencana kontrak (MC-100), dan status.</li>
             </ol>
           </Card>
         )}

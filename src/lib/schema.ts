@@ -138,7 +138,7 @@ export const ContractInfoSchema = z.object({
 });
 
 export const InspectionTeamSchema = z.object({
-  baNumber: z.string().default(''),
+  baPhoNumber: z.string().default(''),
   skNumber: z.string().default(''),
   inspectionDate: z.string().default(''),
   leadInspectorName: z.string().default(''),
@@ -166,7 +166,8 @@ export const ContractTimelineSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   totalCalendarDays: z.number().optional(),
-  fhoTargetDate: z.string().optional(),
+  serahTerimaAkhirDate: z.string().optional(),
+  fhoTargetDate: z.string().optional(), // backward-compat field
   milestones: z.array(MilestoneSchema).optional().default([]),
 });
 
@@ -220,9 +221,10 @@ export const MaintenanceRecordSchema = z.object({
   photoId: z.string().optional(),
 });
 
-export const FHOInfoSchema = z.object({
-  baFhoNumber: z.string().optional().default(''),
-  baFhoDate: z.string().optional().default(''),
+/** Schema Administrasi Serah Terima Akhir */
+export const SerahTerimaAkhirInfoSchema = z.object({
+  baNumber: z.string().optional().default(''),
+  baDate: z.string().optional().default(''),
   inspectionDate: z.string().optional().default(''),
   leadInspectorName: z.string().optional().default(''),
   leadInspectorNip: z.string().optional().default(''),
@@ -230,9 +232,12 @@ export const FHOInfoSchema = z.object({
   contractorRepTitle: z.string().optional().default(''),
   consultantRepName: z.string().optional().default(''),
   consultantRepTitle: z.string().optional().default(''),
-  warrantyStatus: z.enum(['DALAM_PEMELIHARAAN', 'MEMENUHI_SYARAT_FHO', 'TERLAMBAT_PERBAIKAN']).optional().default('DALAM_PEMELIHARAAN'),
+  warrantyStatus: z.enum(['DALAM_PEMELIHARAAN', 'LAYAK_SERAH_TERIMA_AKHIR', 'TERLAMBAT_PERBAIKAN']).optional().default('DALAM_PEMELIHARAAN'),
   closureNotes: z.string().optional().default(''),
 });
+
+/** @deprecated Gunakan SerahTerimaAkhirInfoSchema */
+export const FHOInfoSchema = SerahTerimaAkhirInfoSchema;
 
 export const MonevProjectSchema = z.object({
   id: z.string().min(1),
@@ -261,7 +266,7 @@ export const MonevProjectSchema = z.object({
     dimensionToleranceMeter: 0.015,
   }),
   inspectionTeam: InspectionTeamSchema.default({
-    baNumber: '',
+    baPhoNumber: '',
     skNumber: '',
     inspectionDate: '',
     leadInspectorName: '',
@@ -279,9 +284,9 @@ export const MonevProjectSchema = z.object({
   progressPeriods: z.array(ProgressPeriodSchema).optional().default([]),
   ncrItems: z.array(NCRItemSchema).optional().default([]),
   maintenanceRecords: z.array(MaintenanceRecordSchema).optional().default([]),
-  fhoInfo: FHOInfoSchema.optional().default({
-    baFhoNumber: '',
-    baFhoDate: '',
+  serahTerimaAkhirInfo: SerahTerimaAkhirInfoSchema.optional().default({
+    baNumber: '',
+    baDate: '',
     inspectionDate: '',
     leadInspectorName: '',
     leadInspectorNip: '',

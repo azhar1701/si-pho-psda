@@ -628,7 +628,7 @@ export default function SegmentEditor({ project, seg, update, notify, openCamera
       {/* 8. Catatan Pemeriksa */}
       <Card title="Catatan Pemeriksa Lapangan" icon={<NotebookPen className="h-5 w-5" />}>
         <TextField
-          label="Catatan teknis segmen (dicetak pada Lampiran I BA PHO)"
+          label="Catatan teknis segmen (dicetak pada Lampiran I BA Serah Terima Pertama)"
           multiline
           value={seg.inspectorNotes ?? ''}
           onChange={(v) => set((s) => ({ ...s, inspectorNotes: v }))}

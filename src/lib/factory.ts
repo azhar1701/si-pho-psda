@@ -188,7 +188,7 @@ export const blankProject = (): MonevProject => ({
     dimensionToleranceMeter: 0.015,
   },
   inspectionTeam: {
-    baNumber: '',
+    baPhoNumber: '',
     skNumber: '',
     inspectionDate: todayISO(),
     leadInspectorName: '',
@@ -208,15 +208,15 @@ export const blankProject = (): MonevProject => ({
     startDate: '',
     endDate: '',
     totalCalendarDays: 150,
-    fhoTargetDate: '',
+    serahTerimaAkhirDate: '',
     milestones: [],
   },
   progressPeriods: [],
   ncrItems: [],
   maintenanceRecords: [],
-  fhoInfo: {
-    baFhoNumber: '',
-    baFhoDate: '',
+  serahTerimaAkhirInfo: {
+    baNumber: '',
+    baDate: '',
     inspectionDate: '',
     leadInspectorName: '',
     leadInspectorNip: '',

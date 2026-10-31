@@ -142,6 +142,9 @@ export interface ContractTimeline {
   startDate?: string;
   endDate?: string;
   totalCalendarDays?: number;
+  /** Tanggal target Serah Terima Akhir */
+  serahTerimaAkhirDate?: string;
+  /** @deprecated Gunakan serahTerimaAkhirDate */
   fhoTargetDate?: string;
   milestones?: Milestone[];
 }
@@ -196,9 +199,10 @@ export interface MaintenanceRecord {
   photoId?: string;
 }
 
-export interface FHOInfo {
-  baFhoNumber?: string;
-  baFhoDate?: string;
+/** Informasi administrasi Serah Terima Akhir Pekerjaan */
+export interface SerahTerimaAkhirInfo {
+  baNumber?: string;
+  baDate?: string;
   inspectionDate?: string;
   leadInspectorName?: string;
   leadInspectorNip?: string;
@@ -206,9 +210,12 @@ export interface FHOInfo {
   contractorRepTitle?: string;
   consultantRepName?: string;
   consultantRepTitle?: string;
-  warrantyStatus?: 'DALAM_PEMELIHARAAN' | 'MEMENUHI_SYARAT_FHO' | 'TERLAMBAT_PERBAIKAN';
+  warrantyStatus?: 'DALAM_PEMELIHARAAN' | 'LAYAK_SERAH_TERIMA_AKHIR' | 'TERLAMBAT_PERBAIKAN';
   closureNotes?: string;
 }
+
+/** @deprecated Gunakan SerahTerimaAkhirInfo */
+export type FHOInfo = SerahTerimaAkhirInfo;
 
 export const CURRENT_SCHEMA_VERSION = 3;
 
@@ -240,7 +247,8 @@ export interface MonevProject {
     dimensionToleranceMeter: number;
   };
   inspectionTeam: {
-    baNumber: string;
+    /** Nomor Berita Acara Serah Terima Pertama (Uji Petik) */
+    baPhoNumber: string;
     skNumber: string;
     inspectionDate: string;
     leadInspectorName: string;
@@ -258,7 +266,7 @@ export interface MonevProject {
   progressPeriods?: ProgressPeriod[];
   ncrItems?: NCRItem[];
   maintenanceRecords?: MaintenanceRecord[];
-  fhoInfo?: FHOInfo;
+  serahTerimaAkhirInfo?: SerahTerimaAkhirInfo;
 }
 
 /** Tipe backward-compatibility: PHOProject adalah alias resmi untuk MonevProject */

@@ -67,8 +67,8 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
     metaUp((x) => ({ ...x, agencyHeader: { ...x.agencyHeader, [k]: v } }));
   const setL = <K extends keyof NonNullable<MonevProject['timeline']>>(k: K, v: NonNullable<MonevProject['timeline']>[K]) =>
     metaUp((x) => ({ ...x, timeline: { ...x.timeline, [k]: v } }));
-  const setF = <K extends keyof NonNullable<MonevProject['fhoInfo']>>(k: K, v: NonNullable<MonevProject['fhoInfo']>[K]) =>
-    metaUp((x) => ({ ...x, fhoInfo: { ...x.fhoInfo, [k]: v } }));
+  const setF = <K extends keyof NonNullable<MonevProject['serahTerimaAkhirInfo']>>(k: K, v: NonNullable<MonevProject['serahTerimaAkhirInfo']>[K]) =>
+    metaUp((x) => ({ ...x, serahTerimaAkhirInfo: { ...x.serahTerimaAkhirInfo, [k]: v } }));
 
   const onCsv = async (f: File) => {
     const text = await f.text();
@@ -148,7 +148,7 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
 
   const sides: { value: ConclusionMode; label: string }[] = [
     { value: 'OTOMATIS', label: 'Evaluasi Otomatis (Mengacu Toleransi & Daftar Cacat)' },
-    { value: 'DAPAT_DITERIMA', label: 'Dapat Diterima untuk PHO (Sesuai Rencana)' },
+    { value: 'DAPAT_DITERIMA', label: 'Dapat Diterima untuk Serah Terima Pertama (Sesuai Rencana)' },
     { value: 'DITERIMA_DENGAN_CATATAN', label: 'Diterima dengan Catatan Perbaikan (Defect List)' },
     { value: 'BELUM_DAPAT_DITERIMA', label: 'Belum Dapat Diterima (Pekerjaan Belum Tuntas / Cacat Kritis)' },
   ];
@@ -463,20 +463,20 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
             onChange={(v) => setL('totalCalendarDays', v ?? 150)}
           />
           <TextField
-            label="Target Tanggal FHO (Serah Terima Akhir)"
+            label="Target Tanggal Serah Terima Akhir"
             type="date"
-            value={p.timeline?.fhoTargetDate ?? ''}
-            onChange={(v) => setL('fhoTargetDate', v)}
+            value={p.timeline?.serahTerimaAkhirDate ?? ''}
+            onChange={(v) => setL('serahTerimaAkhirDate', v)}
           />
         </div>
       </Card>
 
       {/* 6. Tim Pemeriksa & Panitia Serah Terima PHO */}
-      <Card title="Tim Pengawas & Panitia Serah Terima Pertama (PHO)" icon={<Users className="h-5 w-5" />}>
+      <Card title="Tim Pengawas & Panitia Serah Terima Pertama" icon={<Users className="h-5 w-5" />}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label="Nomor Berita Acara PHO" value={p.inspectionTeam.baNumber} onChange={(v) => setT('baNumber', v)} />
+          <TextField label="Nomor Berita Acara Serah Terima Pertama (Uji Petik)" value={p.inspectionTeam.baPhoNumber} onChange={(v) => setT('baPhoNumber', v)} />
           <TextField
-            label="Tanggal Pemeriksaan Fisik PHO"
+            label="Tanggal Pemeriksaan Fisik (Uji Petik)"
             type="date"
             value={p.inspectionTeam.inspectionDate}
             onChange={(v) => setT('inspectionDate', v)}
@@ -530,44 +530,44 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
       </Card>
 
       {/* 7. Administrasi Serah Terima Akhir (FHO) */}
-      <Card title="Administrasi Serah Terima Akhir (FHO)" icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}>
+      <Card title="Administrasi Serah Terima Akhir" icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}>
         <p className="text-xs text-slate-500">
-          Kelengkapan administrasi Berita Acara FHO setelah masa pemeliharaan selesai dan seluruh cacat mutu tertuntaskan.
+          Kelengkapan administrasi Berita Acara Serah Terima Akhir setelah masa pemeliharaan selesai dan seluruh cacat mutu tertuntaskan.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 pt-1">
           <TextField
-            label="Nomor Berita Acara FHO"
+            label="Nomor Berita Acara Serah Terima Akhir"
             placeholder="602.1/045.BA-FHO/PSDA/2027"
-            value={p.fhoInfo?.baFhoNumber ?? ''}
-            onChange={(v) => setF('baFhoNumber', v)}
+            value={p.serahTerimaAkhirInfo?.baNumber ?? ''}
+            onChange={(v) => setF('baNumber', v)}
           />
           <TextField
-            label="Tanggal Berita Acara FHO"
+            label="Tanggal Berita Acara Serah Terima Akhir"
             type="date"
-            value={p.fhoInfo?.baFhoDate ?? ''}
-            onChange={(v) => setF('baFhoDate', v)}
+            value={p.serahTerimaAkhirInfo?.baDate ?? ''}
+            onChange={(v) => setF('baDate', v)}
           />
           <TextField
             label="Tanggal Pemeriksaan Akhir Lapangan"
             type="date"
-            value={p.fhoInfo?.inspectionDate ?? ''}
+            value={p.serahTerimaAkhirInfo?.inspectionDate ?? ''}
             onChange={(v) => setF('inspectionDate', v)}
           />
           <TextField
-            label="Ketua Panitia FHO"
-            value={p.fhoInfo?.leadInspectorName ?? p.inspectionTeam.leadInspectorName}
+            label="Ketua Panitia Serah Terima Akhir"
+            value={p.serahTerimaAkhirInfo?.leadInspectorName ?? p.inspectionTeam.leadInspectorName}
             onChange={(v) => setF('leadInspectorName', v)}
           />
           <TextField
-            label="NIP Ketua Panitia FHO"
-            value={p.fhoInfo?.leadInspectorNip ?? p.inspectionTeam.leadInspectorNip}
+            label="NIP Ketua Panitia Serah Terima Akhir"
+            value={p.serahTerimaAkhirInfo?.leadInspectorNip ?? p.inspectionTeam.leadInspectorNip}
             onChange={(v) => setF('leadInspectorNip', v)}
           />
           <div className="sm:col-span-2">
             <TextField
               label="Catatan Akhir Penutupan Masa Pemeliharaan"
               placeholder="Contoh: Seluruh cacat mutu telah diperbaiki tuntas dan fungsi hidraulis bekerja 100% normal."
-              value={p.fhoInfo?.closureNotes ?? ''}
+              value={p.serahTerimaAkhirInfo?.closureNotes ?? ''}
               onChange={(v) => setF('closureNotes', v)}
             />
           </div>
@@ -575,7 +575,7 @@ export default function ProjectView({ project: p, update, updateMeta, replacePro
       </Card>
 
       {/* 8. Evaluasi Kelayakan PHO & Analisis AI */}
-      <Card title="Evaluasi Kelayakan PHO & Analisis AI" icon={<KeyRound className="h-5 w-5 text-purple-600" />}>
+      <Card title="Evaluasi Kelayakan Serah Terima Pertama & Analisis AI" icon={<KeyRound className="h-5 w-5 text-purple-600" />}>
         <div className="grid gap-3">
           <SelectField
             label="Status Rekomendasi Kelayakan PHO pada Berita Acara"

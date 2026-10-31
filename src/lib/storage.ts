@@ -227,13 +227,41 @@ export const normalizeProject = (raw: unknown): MonevProject => {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     agencyHeader: { ...base.agencyHeader, ...(r.agencyHeader ?? {}) },
     contractInfo: { ...base.contractInfo, ...(r.contractInfo ?? {}) },
-    inspectionTeam: { ...base.inspectionTeam, ...(r.inspectionTeam ?? {}) },
     conclusionMode: r.conclusionMode ?? 'OTOMATIS',
-    timeline: { ...base.timeline, ...(r.timeline ?? {}) },
     progressPeriods: r.progressPeriods ?? base.progressPeriods ?? [],
     ncrItems: r.ncrItems ?? base.ncrItems ?? [],
     maintenanceRecords: r.maintenanceRecords ?? base.maintenanceRecords ?? [],
-    fhoInfo: { ...base.fhoInfo, ...(r.fhoInfo ?? {}) },
+    // Migrasi field lama baNumber → baPhoNumber
+    inspectionTeam: {
+      ...base.inspectionTeam,
+      ...(r.inspectionTeam ?? {}),
+      baPhoNumber: (r.inspectionTeam as any)?.baPhoNumber ?? (r.inspectionTeam as any)?.baNumber ?? base.inspectionTeam.baPhoNumber,
+    },
+    // Migrasi timeline fhoTargetDate → serahTerimaAkhirDate
+    timeline: {
+      ...base.timeline,
+      ...(r.timeline ?? {}),
+      serahTerimaAkhirDate: (r.timeline as any)?.serahTerimaAkhirDate ?? (r.timeline as any)?.fhoTargetDate ?? base.timeline?.serahTerimaAkhirDate,
+    },
+    // Migrasi fhoInfo → serahTerimaAkhirInfo
+    serahTerimaAkhirInfo: {
+      ...base.serahTerimaAkhirInfo,
+      ...((r as any).serahTerimaAkhirInfo ?? {}),
+      // Fallback dari format lama (fhoInfo)
+      ...((r as any).fhoInfo ? {
+        baNumber: (r as any).fhoInfo.baFhoNumber ?? (r as any).fhoInfo.baNumber ?? '',
+        baDate: (r as any).fhoInfo.baFhoDate ?? (r as any).fhoInfo.baDate ?? '',
+        inspectionDate: (r as any).fhoInfo.inspectionDate ?? '',
+        leadInspectorName: (r as any).fhoInfo.leadInspectorName ?? '',
+        leadInspectorNip: (r as any).fhoInfo.leadInspectorNip ?? '',
+        contractorRepName: (r as any).fhoInfo.contractorRepName ?? '',
+        contractorRepTitle: (r as any).fhoInfo.contractorRepTitle ?? '',
+        consultantRepName: (r as any).fhoInfo.consultantRepName ?? '',
+        consultantRepTitle: (r as any).fhoInfo.consultantRepTitle ?? '',
+        warrantyStatus: ((r as any).fhoInfo.warrantyStatus === 'MEMENUHI_SYARAT_FHO' ? 'LAYAK_SERAH_TERIMA_AKHIR' : (r as any).fhoInfo.warrantyStatus) ?? 'DALAM_PEMELIHARAAN',
+        closureNotes: (r as any).fhoInfo.closureNotes ?? '',
+      } : {}),
+    },
     segments: r.segments.map((s) => ({
       ...s,
       mc0Dimensions: s.mc0Dimensions && Object.keys(s.mc0Dimensions).length > 0 ? s.mc0Dimensions : s.mc100Dimensions ?? {},

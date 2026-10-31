@@ -1,4 +1,4 @@
-import type { DefectItem, InspectionSegment, PHOProject } from '../types';
+import type { DefectItem, InspectionSegment, MonevProject } from '../types';
 import { SUBTYPES, POSITION_LABEL } from './templates';
 import { fmt, fmtDim, stempelWaktu } from './format';
 import type { WatermarkInfo } from './imaging';
@@ -19,7 +19,7 @@ export const gpsText = (g: DefectItem['gpsCoordinates']) => {
 };
 
 export const buildWatermarkInfo = (
-  p: PHOProject,
+  p: MonevProject,
   seg: InspectionSegment,
   d: Pick<DefectItem, 'entryType' | 'defectCode' | 'defectTitle' | 'severity' | 'gpsCoordinates' | 'capturedAt' | 'positionSide'>,
 ): WatermarkInfo => {

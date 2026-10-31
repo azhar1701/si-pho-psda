@@ -159,7 +159,8 @@ export const resolveConclusion = (p: MonevProject) => {
   return 'DAPAT_DITERIMA' as const;
 };
 
-export interface FHOReadiness {
+/** Hasil evaluasi kesiapan Serah Terima Akhir (FHO). */
+export interface SerahTerimaAkhirReadiness {
   isReady: boolean;
   unresolvedDefectCount: number;
   openNcrCount: number;
@@ -168,14 +169,17 @@ export interface FHOReadiness {
   reasons: string[];
 }
 
+/** @deprecated Gunakan SerahTerimaAkhirReadiness */
+export type FHOReadiness = SerahTerimaAkhirReadiness;
+
 /**
- * Evaluasi Kesiapan FHO (Final Hand Over):
+ * Evaluasi Kesiapan Serah Terima Akhir (FHO):
  * Memeriksa pemenuhan syarat serah terima akhir:
- * - 0 catatan cacat mutu PHO yang belum diselesaikan
+ * - 0 catatan cacat mutu masa pemeliharaan yang belum diselesaikan
  * - 0 open NCR
  * - Masa pemeliharaan telah berakhir
  */
-export const evaluateFHOReadiness = (p: MonevProject): FHOReadiness => {
+export const evaluateSerahTerimaAkhirReadiness = (p: MonevProject): SerahTerimaAkhirReadiness => {
   const defects = p.segments.flatMap((s) => s.defects.filter((d) => d.entryType === 'CACAT_MUTU'));
   const resolvedDefectRefs = new Set(
     (p.maintenanceRecords ?? [])
@@ -189,16 +193,16 @@ export const evaluateFHOReadiness = (p: MonevProject): FHOReadiness => {
 
   const openNcrCount = (p.ncrItems ?? []).filter((n) => n.status !== 'CLOSED').length;
 
-  const phoDateStr = p.inspectionTeam.inspectionDate;
+  const baPhoDateStr = p.inspectionTeam.inspectionDate;
   const maintenanceDays = p.contractInfo.maintenancePeriodDays || 180;
   let warrantyDaysRemaining = 0;
   let isWarrantyPeriodEnded = false;
 
-  if (phoDateStr) {
-    const phoDate = new Date(phoDateStr);
-    const targetFhoDate = new Date(phoDate.getTime() + maintenanceDays * 86400000);
+  if (baPhoDateStr) {
+    const baPhoDate = new Date(baPhoDateStr);
+    const targetSerahTerimaAkhirDate = new Date(baPhoDate.getTime() + maintenanceDays * 86400000);
     const now = new Date();
-    const diffTime = targetFhoDate.getTime() - now.getTime();
+    const diffTime = targetSerahTerimaAkhirDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / 86400000);
     warrantyDaysRemaining = Math.max(0, diffDays);
     isWarrantyPeriodEnded = diffDays <= 0;
@@ -206,7 +210,7 @@ export const evaluateFHOReadiness = (p: MonevProject): FHOReadiness => {
 
   const reasons: string[] = [];
   if (unresolvedDefectCount > 0) {
-    reasons.push(`${unresolvedDefectCount} temuan cacat mutu PHO belum tuntas diperbaiki.`);
+    reasons.push(`${unresolvedDefectCount} temuan cacat mutu belum tuntas diperbaiki sebelum Serah Terima Akhir.`);
   }
   if (openNcrCount > 0) {
     reasons.push(`${openNcrCount} lembar NCR masih berstatus aktif/terbuka.`);
@@ -224,3 +228,6 @@ export const evaluateFHOReadiness = (p: MonevProject): FHOReadiness => {
     reasons,
   };
 };
+
+/** @deprecated Gunakan evaluateSerahTerimaAkhirReadiness */
+export const evaluateFHOReadiness = evaluateSerahTerimaAkhirReadiness;
